@@ -236,6 +236,7 @@
                                 <Button Content="AI入力" Tag="ai-input.json" Click="RunArtifact_Click"/>
                                 <Button Content="Codex結果" Tag="codex-result.json" Click="RunArtifact_Click"/>
                                 <Button Content="探索サマリー" Tag="exploration-summary.json" Click="RunArtifact_Click"/>
+                                <Button Content="復旧記録" Tag="scopepilot-recovery.json" Click="RunArtifact_Click"/>
                                 <Button Content="この設定で再試行" Command="{Binding RetrySelectedRunCommand}" Style="{StaticResource PrimaryActionButton}"/>
                             </WrapPanel>
                         </Grid>

@@ -101,6 +101,7 @@ public sealed class RunHistoryService
         var fast = await ReadJsonAsync(Path.Combine(directory.FullName, "fast-crawl-summary.json"));
         var aiInput = await ReadJsonAsync(Path.Combine(directory.FullName, "ai-input.json"));
         var result = await ReadJsonAsync(Path.Combine(directory.FullName, "codex-result.json"));
+        var recovery = await ReadJsonAsync(Path.Combine(directory.FullName, "scopepilot-recovery.json"));
         var intervention = File.Exists(Path.Combine(directory.FullName, "human-intervention.json"));
         var startedAt = ReadDate(engagement, "runStartedAt") ?? directory.CreationTime;
         var fastRequestCount = ReadInt(fast, "observedRequestCount");
@@ -113,6 +114,7 @@ public sealed class RunHistoryService
         if (string.IsNullOrWhiteSpace(status))
         {
             if (intervention) status = "waiting";
+            else if (recovery is not null) status = ReadInt(recovery, "recoveredObservationCount") > 0 ? "partial" : "failed";
             else if (File.Exists(Path.Combine(directory.FullName, "codex-run.log"))) status = "failed";
             else if (fast is not null) status = ReadString(fast, "status") is "completed" ? "crawled" : "failed";
             else status = "prepared";
@@ -125,6 +127,8 @@ public sealed class RunHistoryService
             "failed" => "結果ファイルが生成されず終了しました。ログを確認してください。",
             _ => string.Empty
         };
+        if (recovery is not null && string.IsNullOrWhiteSpace(ReadString(result, "summary")))
+            summary = $"{ReadString(recovery, "phase")}で技術エラー: {ReadString(recovery, "error")}";
         return new(directory.Name, directory.FullName, startedAt, status, StatusDisplay(status), fastRequestCount,
             aiObservedCount, requestPatterns, formPatterns, summary, limitations)
         { Role = ReadString(engagement, "activeRole") is { Length: > 0 } role ? role : "未認証" };

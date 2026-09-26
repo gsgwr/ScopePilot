@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using ScopePilot.Domain;
 using ScopePilot.Infrastructure;
 using ScopePilot.Services;
@@ -152,6 +153,12 @@ public sealed class MainViewModel : ObservableObject
             Project = await _store.LoadLatestAsync() ?? new EngagementProject();
             PrepareProject(Project);
             UpdateRoleOptions();
+            if (Project.Status is ProjectStatus.Crawling or ProjectStatus.WaitingForHuman or ProjectStatus.Organizing)
+            {
+                Project.Status = Project.Requests.Count > 0 ? ProjectStatus.Partial : ProjectStatus.Paused;
+                await _store.SaveAsync(Project);
+                Log("前回の未完了ジョブを検出しました。保存済みデータを保持して再試行可能な状態へ復旧しました。");
+            }
             var removedStartUrlCache = RemoveStartUrlFromDeferredCache();
             Log(Project.CreatedAt == Project.UpdatedAt ? "新規案件を開始しました。" : "直近の案件を復元しました。");
             if (removedStartUrlCache)
@@ -499,6 +506,12 @@ public sealed class MainViewModel : ObservableObject
         {
             var progress = new Progress<string>(message => { Log(message); UpdateProgressFromLog(message); });
             var crawl = await _fastCrawler.RunAsync(path, progress, _runCancellation.Token);
+            if (!crawl.Cancelled && !crawl.ProxyUnavailable && crawl.ExitCode != 0)
+            {
+                Log($"高速クローラが終了コード {crawl.ExitCode} で停止しました。新しいプロセスで1回だけ再試行します。");
+                SetRunProgress("クロール再試行", Math.Max(15, RunProgress), "高速クローラを新しいプロセスで再開しています。");
+                crawl = await _fastCrawler.RunAsync(path, progress, _runCancellation.Token);
+            }
             if (crawl.Cancelled)
             {
                 Project.Status = ProjectStatus.Paused;
@@ -515,16 +528,17 @@ public sealed class MainViewModel : ObservableObject
                 return;
             }
             if (crawl.ExitCode != 0)
-                Log($"高速クローラが終了コード {crawl.ExitCode} で停止しました。Codex探索へフォールバックします。");
+                Log($"高速クローラが再試行後も終了コード {crawl.ExitCode} で停止しました。取得済みデータを整理し、Codex探索へフォールバックします。");
             else
-            {
                 Log("高速GETクロールが完了しました。アプリ側でAI対象を分類します。");
+            if (!crawl.ProxyUnavailable)
+            {
                 SetRunProgress("AI入力整理", 58, "静的通信を除外し、動的な代表パターンを作成しています。");
                 var aiInput = await _aiInputBuilder.BuildAsync(path);
                 Log($"AI事前分類: 通信{aiInput.TotalRequests:N0}件中、静的アセット・静的画面候補{aiInput.StaticExcluded:N0}件と除外キャッシュ{aiInput.DeferredExcluded:N0}件を対象外とし、採用済み・新規のリクエスト{aiInput.RequestPatternCount:N0}パターン・フォーム{aiInput.FormPatternCount:N0}パターンに集約しました。");
                 if (aiInput.TruncatedPatternCount > 0)
                     Log($"AI入力の上限により{aiInput.TruncatedPatternCount:N0}パターンを省略しました。全件の証跡は実行フォルダーに保持しています。");
-                if (!aiInput.RequiresAi)
+                if (!aiInput.RequiresAi && crawl.ExitCode == 0)
                 {
                     Log("AIで確認すべき動的パターンがないため、Codex探索を起動せず完了します。");
                     var fastObservations = Path.Combine(path, "fast-observed-requests.jsonl");
@@ -535,7 +549,9 @@ public sealed class MainViewModel : ObservableObject
                     SetRunProgress("完了", 100, "AI確認が必要な動的パターンはありませんでした。");
                     return;
                 }
-                Log("動的な代表パターンだけをCodexへ渡して機能確認を開始します。");
+                Log(crawl.ExitCode == 0
+                    ? "動的な代表パターンだけをCodexへ渡して機能確認を開始します。"
+                    : "高速クロールの部分データをCodexへ渡し、代表パターンの確認を継続します。");
                 SetRunProgress("Codex確認", 65, $"{aiInput.RequestPatternCount:N0}件の要求パターンと{aiInput.FormPatternCount:N0}件のフォームを確認しています。");
             }
 
@@ -605,9 +621,11 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Project.Status = ProjectStatus.Failed;
+            var recovered = _currentRunDirectory is null ? 0 : await RecoverPartialObservationsAsync(_currentRunDirectory);
+            Project.Status = recovered > 0 ? ProjectStatus.Partial : ProjectStatus.Failed;
             SetRunProgress("実行失敗", RunProgress, "探索中に技術エラーが発生しました。実行ログを確認してください。");
             Log($"探索の起動または実行に失敗しました: {ex.Message}");
+            if (_currentRunDirectory is not null) await WriteRecoveryRecordAsync(_currentRunDirectory, ex, recovered);
         }
         finally
         {
@@ -708,6 +726,38 @@ public sealed class MainViewModel : ObservableObject
                    summary?.Contains("Transport", StringComparison.OrdinalIgnoreCase) == true;
         }
         catch { return false; }
+    }
+
+    private async Task<int> RecoverPartialObservationsAsync(string runDirectory)
+    {
+        var recovered = 0;
+        foreach (var fileName in new[] { "fast-observed-requests.jsonl", "ai-observed-requests.jsonl", "observed-requests.jsonl" })
+        {
+            var path = Path.Combine(runDirectory, fileName);
+            if (File.Exists(path) && new FileInfo(path).Length > 0) recovered += await ImportAsync(path);
+        }
+        if (recovered > 0) Log($"技術エラー前に保存された観測データ{recovered:N0}件を部分結果として復旧しました。");
+        return recovered;
+    }
+
+    private async Task WriteRecoveryRecordAsync(string runDirectory, Exception error, int recoveredCount)
+    {
+        try
+        {
+            var record = new
+            {
+                recordedAt = DateTimeOffset.Now,
+                phase = RunPhase,
+                progress = RunProgress,
+                errorType = error.GetType().Name,
+                error = error.Message,
+                recoveredObservationCount = recoveredCount,
+                retry = "実行履歴からこの設定で再試行できます。"
+            };
+            await File.WriteAllTextAsync(Path.Combine(runDirectory, "scopepilot-recovery.json"),
+                JsonSerializer.Serialize(record, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception writeError) { Log($"復旧記録を保存できませんでした: {writeError.Message}"); }
     }
 
     private static string FormatIntervention(string detail)
