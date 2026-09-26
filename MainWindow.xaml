@@ -23,6 +23,8 @@
             <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource DisabledButtonBackground}"/><Setter Property="Foreground" Value="{DynamicResource DisabledButtonForeground}"/></Trigger></Style.Triggers>
         </Style>
         <Style TargetType="TextBox"><Setter Property="Padding" Value="8,6"/><Setter Property="Margin" Value="0,3,0,10"/><Setter Property="Background" Value="{DynamicResource ControlBackground}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/><Setter Property="CaretBrush" Value="{DynamicResource TextPrimary}"/></Style>
+        <Style TargetType="ListBox"><Setter Property="Padding" Value="3"/><Setter Property="Margin" Value="0,3,0,10"/><Setter Property="Background" Value="{DynamicResource ControlBackground}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/></Style>
+        <Style TargetType="ListBoxItem"><Setter Property="Padding" Value="8,6"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="Background" Value="{DynamicResource Surface}"/>
@@ -80,6 +82,10 @@
                     <Grid Margin="20">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
+                            <GroupBox Header="保存済み案件"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <ListBox ItemsSource="{Binding SavedProjects}" SelectedItem="{Binding SelectedSavedProject}" DisplayMemberPath="DisplayName" Height="70" ToolTip="保存済みの案件を選択します。"/>
+                                <Button Grid.Column="1" Content="案件を開く" Command="{Binding LoadProjectCommand}" Margin="8,3,0,10"/>
+                            </Grid></GroupBox>
                             <GroupBox Header="基本情報"><StackPanel>
                                 <TextBlock Text="案件名"/><TextBox Text="{Binding Project.Name, UpdateSourceTrigger=PropertyChanged}"/>
                                 <TextBlock Text="開始URL"/><TextBox Text="{Binding Project.StartUrl, UpdateSourceTrigger=PropertyChanged}"/>

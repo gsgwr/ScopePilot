@@ -26,11 +26,13 @@ public sealed class MainViewModel : ObservableObject
     private string _interventionText = string.Empty;
     private DiagnosticCandidate? _selectedCandidate;
     private DiagnosticFinding? _selectedFinding;
+    private SavedProjectInfo? _selectedSavedProject;
 
     public MainViewModel()
     {
         SaveCommand = new AsyncRelayCommand(SaveAsync);
         NewProjectCommand = new AsyncRelayCommand(NewProjectAsync, () => !IsRunning);
+        LoadProjectCommand = new AsyncRelayCommand(LoadProjectAsync, () => !IsRunning && SelectedSavedProject is not null);
         CheckEnvironmentCommand = new AsyncRelayCommand(CheckEnvironmentAsync);
         SetupMcpCommand = new AsyncRelayCommand(SetupMcpAsync);
         BuildExplorationPackageCommand = new AsyncRelayCommand(BuildExplorationPackageAsync);
@@ -45,8 +47,10 @@ public sealed class MainViewModel : ObservableObject
 
     public EngagementProject Project { get => _project; private set { if (SetProperty(ref _project, value)) RefreshSummary(); } }
     public ObservableCollection<string> Logs { get; } = [];
+    public ObservableCollection<SavedProjectInfo> SavedProjects { get; } = [];
     public AsyncRelayCommand SaveCommand { get; }
     public AsyncRelayCommand NewProjectCommand { get; }
+    public AsyncRelayCommand LoadProjectCommand { get; }
     public AsyncRelayCommand CheckEnvironmentCommand { get; }
     public AsyncRelayCommand SetupMcpCommand { get; }
     public AsyncRelayCommand BuildExplorationPackageCommand { get; }
@@ -65,6 +69,7 @@ public sealed class MainViewModel : ObservableObject
             if (!SetProperty(ref _isRunning, value)) return;
             StartExplorationCommand.RaiseCanExecuteChanged();
             NewProjectCommand.RaiseCanExecuteChanged();
+            LoadProjectCommand.RaiseCanExecuteChanged();
             StopExplorationCommand.RaiseCanExecuteChanged();
             ResumeExplorationCommand.RaiseCanExecuteChanged();
             ResetCandidateDecisionsCommand.RaiseCanExecuteChanged();
@@ -73,6 +78,14 @@ public sealed class MainViewModel : ObservableObject
         }
     }
     public string InterventionText { get => _interventionText; private set => SetProperty(ref _interventionText, value); }
+    public SavedProjectInfo? SelectedSavedProject
+    {
+        get => _selectedSavedProject;
+        set
+        {
+            if (SetProperty(ref _selectedSavedProject, value)) LoadProjectCommand.RaiseCanExecuteChanged();
+        }
+    }
     public DiagnosticCandidate? SelectedCandidate { get => _selectedCandidate; set => SetProperty(ref _selectedCandidate, value); }
     public DiagnosticFinding? SelectedFinding { get => _selectedFinding; set => SetProperty(ref _selectedFinding, value); }
     public string StatusText => Project.Status switch { ProjectStatus.Draft => "設定中", ProjectStatus.Ready => "準備完了", ProjectStatus.Crawling => "探索中", ProjectStatus.WaitingForHuman => "手動操作待ち", ProjectStatus.Organizing => "整理中", ProjectStatus.ReviewReady => "確認可能", ProjectStatus.Partial => "部分結果", ProjectStatus.Paused => "一時停止", _ => "失敗" };
@@ -87,14 +100,7 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             Project = await _store.LoadLatestAsync() ?? new EngagementProject();
-            Project.Guidelines ??= new GuidelineSelectionOptions();
-            Project.Requests ??= [];
-            Project.Candidates ??= [];
-            Project.Findings ??= [];
-            Project.AdoptedCandidatePatterns ??= [];
-            Project.DeferredCandidatePatterns ??= [];
-            Project.ExplicitlyReviewedCandidatePatterns ??= [];
-            foreach (var request in Project.Requests) RequestImporter.Normalize(request);
+            PrepareProject(Project);
             var removedStartUrlCache = RemoveStartUrlFromDeferredCache();
             Log(Project.CreatedAt == Project.UpdatedAt ? "新規案件を開始しました。" : "直近の案件を復元しました。");
             if (removedStartUrlCache)
@@ -105,6 +111,7 @@ public sealed class MainViewModel : ObservableObject
                 await _store.SaveAsync(Project);
                 Log("最新のURLパターン規則で診断対象候補を再生成しました。");
             }
+            await RefreshSavedProjectsAsync(Project.Id);
         }
         catch (Exception ex) { Log($"案件の復元に失敗しました: {ex.Message}"); }
     }
@@ -145,7 +152,9 @@ public sealed class MainViewModel : ObservableObject
             var valid = IsConfigurationValid();
             if (!valid) Project.Status = ProjectStatus.Draft;
             else if (Project.Status is ProjectStatus.Draft or ProjectStatus.Failed) Project.Status = ProjectStatus.Ready;
-            await _store.SaveAsync(Project); Log($"案件を保存しました: {_store.DataDirectory}"); RefreshSummary();
+            await _store.SaveAsync(Project);
+            UpdateSavedProjectSummary();
+            Log($"案件を保存しました: {_store.DataDirectory}"); RefreshSummary();
         }
         catch (Exception ex) { Log($"保存失敗: {ex.Message}"); }
     }
@@ -195,10 +204,70 @@ public sealed class MainViewModel : ObservableObject
             Logs.Clear();
             RaisePropertyChanged(nameof(ConsoleText));
             await _store.SaveAsync(Project);
+            await RefreshSavedProjectsAsync(Project.Id);
             Log("新しい案件を開始しました。観測通信、診断候補、実行ログを初期化しました。");
             RefreshSummary();
         }
         catch (Exception ex) { Log($"新しい案件を開始できませんでした: {ex.Message}"); }
+    }
+
+    private async Task LoadProjectAsync()
+    {
+        if (SelectedSavedProject is null) return;
+        try
+        {
+            await _store.SaveAsync(Project);
+            var loaded = await _store.LoadAsync(SelectedSavedProject.Id);
+            if (loaded is null)
+            {
+                Log("選択した案件ファイルが見つかりません。案件一覧を更新します。");
+                await RefreshSavedProjectsAsync(Project.Id);
+                return;
+            }
+            PrepareProject(loaded);
+            Project = loaded;
+            _currentRunDirectory = null;
+            InterventionText = string.Empty;
+            SelectedCandidate = null;
+            SelectedFinding = null;
+            Logs.Clear();
+            RaisePropertyChanged(nameof(ConsoleText));
+            if (Project.Requests.Count > 0) GenerateCandidates();
+            await _store.SaveAsync(Project);
+            await RefreshSavedProjectsAsync(Project.Id);
+            Log($"保存済み案件を開きました: {Project.Name}（観測{Project.Requests.Count:N0}件、候補{Project.Candidates.Count:N0}件、所見{Project.Findings.Count:N0}件）");
+            RefreshSummary();
+        }
+        catch (Exception ex) { Log($"案件を開けませんでした: {ex.Message}"); }
+    }
+
+    private async Task RefreshSavedProjectsAsync(Guid selectedId)
+    {
+        var projects = await _store.ListAsync();
+        SavedProjects.Clear();
+        foreach (var project in projects) SavedProjects.Add(project);
+        SelectedSavedProject = SavedProjects.FirstOrDefault(x => x.Id == selectedId) ?? SavedProjects.FirstOrDefault();
+    }
+
+    private void UpdateSavedProjectSummary()
+    {
+        var existing = SavedProjects.FirstOrDefault(x => x.Id == Project.Id);
+        if (existing is not null) SavedProjects.Remove(existing);
+        var current = new SavedProjectInfo(Project.Id, Project.Name, Project.StartUrl, Project.UpdatedAt);
+        SavedProjects.Insert(0, current);
+        SelectedSavedProject = current;
+    }
+
+    private static void PrepareProject(EngagementProject project)
+    {
+        project.Guidelines ??= new GuidelineSelectionOptions();
+        project.Requests ??= [];
+        project.Candidates ??= [];
+        project.Findings ??= [];
+        project.AdoptedCandidatePatterns ??= [];
+        project.DeferredCandidatePatterns ??= [];
+        project.ExplicitlyReviewedCandidatePatterns ??= [];
+        foreach (var request in project.Requests) RequestImporter.Normalize(request);
     }
 
     private async Task CheckEnvironmentAsync()
