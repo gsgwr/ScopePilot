@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using ScopePilot.Domain;
 using ScopePilot.Infrastructure;
 using ScopePilot.Services;
@@ -19,6 +20,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly BurpScopeExportService _burpScopeExport = new();
     private readonly CodexFindingImporter _findingImporter = new();
     private readonly FindingReportService _findingReport = new();
+    private readonly RunHistoryService _runHistoryService = new();
     private EngagementProject _project = new();
     private CancellationTokenSource? _runCancellation;
     private string? _currentRunDirectory;
@@ -27,12 +29,15 @@ public sealed class MainViewModel : ObservableObject
     private DiagnosticCandidate? _selectedCandidate;
     private DiagnosticFinding? _selectedFinding;
     private SavedProjectInfo? _selectedSavedProject;
+    private ExplorationRunSummary? _selectedRun;
 
     public MainViewModel()
     {
         SaveCommand = new AsyncRelayCommand(SaveAsync);
         NewProjectCommand = new AsyncRelayCommand(NewProjectAsync, () => !IsRunning);
         LoadProjectCommand = new AsyncRelayCommand(LoadProjectAsync, () => !IsRunning && SelectedSavedProject is not null);
+        OpenRunFolderCommand = new RelayCommand(OpenSelectedRunFolder, () => SelectedRun is not null);
+        RetrySelectedRunCommand = new AsyncRelayCommand(RetrySelectedRunAsync, () => !IsRunning && SelectedRun is not null);
         CheckEnvironmentCommand = new AsyncRelayCommand(CheckEnvironmentAsync);
         SetupMcpCommand = new AsyncRelayCommand(SetupMcpAsync);
         BuildExplorationPackageCommand = new AsyncRelayCommand(BuildExplorationPackageAsync);
@@ -48,9 +53,12 @@ public sealed class MainViewModel : ObservableObject
     public EngagementProject Project { get => _project; private set { if (SetProperty(ref _project, value)) RefreshSummary(); } }
     public ObservableCollection<string> Logs { get; } = [];
     public ObservableCollection<SavedProjectInfo> SavedProjects { get; } = [];
+    public ObservableCollection<ExplorationRunSummary> RunHistory { get; } = [];
     public AsyncRelayCommand SaveCommand { get; }
     public AsyncRelayCommand NewProjectCommand { get; }
     public AsyncRelayCommand LoadProjectCommand { get; }
+    public RelayCommand OpenRunFolderCommand { get; }
+    public AsyncRelayCommand RetrySelectedRunCommand { get; }
     public AsyncRelayCommand CheckEnvironmentCommand { get; }
     public AsyncRelayCommand SetupMcpCommand { get; }
     public AsyncRelayCommand BuildExplorationPackageCommand { get; }
@@ -70,6 +78,7 @@ public sealed class MainViewModel : ObservableObject
             StartExplorationCommand.RaiseCanExecuteChanged();
             NewProjectCommand.RaiseCanExecuteChanged();
             LoadProjectCommand.RaiseCanExecuteChanged();
+            RetrySelectedRunCommand.RaiseCanExecuteChanged();
             StopExplorationCommand.RaiseCanExecuteChanged();
             ResumeExplorationCommand.RaiseCanExecuteChanged();
             ResetCandidateDecisionsCommand.RaiseCanExecuteChanged();
@@ -86,6 +95,16 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _selectedSavedProject, value)) LoadProjectCommand.RaiseCanExecuteChanged();
         }
     }
+    public ExplorationRunSummary? SelectedRun
+    {
+        get => _selectedRun;
+        set
+        {
+            if (!SetProperty(ref _selectedRun, value)) return;
+            OpenRunFolderCommand.RaiseCanExecuteChanged();
+            RetrySelectedRunCommand.RaiseCanExecuteChanged();
+        }
+    }
     public DiagnosticCandidate? SelectedCandidate { get => _selectedCandidate; set => SetProperty(ref _selectedCandidate, value); }
     public DiagnosticFinding? SelectedFinding { get => _selectedFinding; set => SetProperty(ref _selectedFinding, value); }
     public string StatusText => Project.Status switch { ProjectStatus.Draft => "設定中", ProjectStatus.Ready => "準備完了", ProjectStatus.Crawling => "探索中", ProjectStatus.WaitingForHuman => "手動操作待ち", ProjectStatus.Organizing => "整理中", ProjectStatus.ReviewReady => "確認可能", ProjectStatus.Partial => "部分結果", ProjectStatus.Paused => "一時停止", _ => "失敗" };
@@ -93,6 +112,7 @@ public sealed class MainViewModel : ObservableObject
     public string RequestSummary => $"観測した通信: {Project.Requests.Count:N0}件";
     public string CandidateSummary => $"代表化した候補: {Project.Candidates.Count:N0}件（採用 {Project.Candidates.Count(x => x.Selected):N0}件／除外キャッシュ {Project.DeferredCandidatePatterns.Count:N0}件）";
     public string FindingSummary => $"診断所見: {Project.Findings.Count:N0}件";
+    public string RunHistorySummary => $"探索実行履歴: {RunHistory.Count:N0}件";
     public string ConsoleText => string.Join(Environment.NewLine, Logs);
 
     public async Task InitializeAsync()
@@ -112,6 +132,7 @@ public sealed class MainViewModel : ObservableObject
                 Log("最新のURLパターン規則で診断対象候補を再生成しました。");
             }
             await RefreshSavedProjectsAsync(Project.Id);
+            await RefreshRunHistoryAsync();
         }
         catch (Exception ex) { Log($"案件の復元に失敗しました: {ex.Message}"); }
     }
@@ -206,6 +227,7 @@ public sealed class MainViewModel : ObservableObject
             RaisePropertyChanged(nameof(ConsoleText));
             await _store.SaveAsync(Project);
             await RefreshSavedProjectsAsync(Project.Id);
+            await RefreshRunHistoryAsync();
             Log("新しい案件を開始しました。観測通信、診断候補、実行ログを初期化しました。");
             RefreshSummary();
         }
@@ -236,6 +258,7 @@ public sealed class MainViewModel : ObservableObject
             if (Project.Requests.Count > 0) GenerateCandidates();
             await _store.SaveAsync(Project);
             await RefreshSavedProjectsAsync(Project.Id);
+            await RefreshRunHistoryAsync();
             Log($"保存済み案件を開きました: {Project.Name}（観測{Project.Requests.Count:N0}件、候補{Project.Candidates.Count:N0}件、所見{Project.Findings.Count:N0}件）");
             RefreshSummary();
         }
@@ -257,6 +280,47 @@ public sealed class MainViewModel : ObservableObject
         var current = new SavedProjectInfo(Project.Id, Project.Name, Project.StartUrl, Project.UpdatedAt);
         SavedProjects.Insert(0, current);
         SelectedSavedProject = current;
+    }
+
+    private async Task RefreshRunHistoryAsync()
+    {
+        var selectedId = SelectedRun?.RunId;
+        var runs = await _runHistoryService.ListAsync(Project.Id);
+        RunHistory.Clear();
+        foreach (var run in runs) RunHistory.Add(run);
+        SelectedRun = RunHistory.FirstOrDefault(x => x.RunId == selectedId) ?? RunHistory.FirstOrDefault();
+        RaisePropertyChanged(nameof(RunHistorySummary));
+    }
+
+    private void OpenSelectedRunFolder()
+    {
+        if (SelectedRun is null) return;
+        OpenRunPath(SelectedRun.Directory, "実行フォルダー");
+    }
+
+    public void OpenSelectedRunArtifact(string fileName)
+    {
+        if (SelectedRun is null) return;
+        var path = Path.Combine(SelectedRun.Directory, fileName);
+        if (!File.Exists(path))
+        {
+            Log($"選択した実行には {fileName} がありません。");
+            return;
+        }
+        OpenRunPath(path, fileName);
+    }
+
+    private void OpenRunPath(string path, string label)
+    {
+        try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
+        catch (Exception ex) { Log($"{label}を開けませんでした: {ex.Message}"); }
+    }
+
+    private async Task RetrySelectedRunAsync()
+    {
+        if (SelectedRun is null) return;
+        Log($"過去実行 {SelectedRun.StartedAtDisplay} の設定を使い、新しい実行として再試行します。");
+        await StartExplorationAsync();
     }
 
     private static void PrepareProject(EngagementProject project)
@@ -303,6 +367,7 @@ public sealed class MainViewModel : ObservableObject
     {
         var path = await BuildPackageAsync();
         if (path is null) return;
+        await RefreshRunHistoryAsync();
         Log($"探索パッケージを生成しました: {path}");
         Log("パッケージは［AI探索を開始］から実行できます。");
     }
@@ -446,6 +511,8 @@ public sealed class MainViewModel : ObservableObject
             ResumeExplorationCommand.RaiseCanExecuteChanged();
             RefreshSummary();
             await _store.SaveAsync(Project);
+            try { await RefreshRunHistoryAsync(); }
+            catch (Exception ex) { Log($"探索実行履歴を更新できませんでした: {ex.Message}"); }
         }
     }
 
@@ -644,5 +711,5 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private void Log(string message) { Logs.Insert(0, $"{DateTime.Now:HH:mm:ss}  {message}"); while (Logs.Count > 500) Logs.RemoveAt(Logs.Count - 1); RaisePropertyChanged(nameof(ConsoleText)); }
-    private void RefreshSummary() { RaisePropertyChanged(nameof(StatusText)); RaisePropertyChanged(nameof(SummaryText)); RaisePropertyChanged(nameof(RequestSummary)); RaisePropertyChanged(nameof(CandidateSummary)); RaisePropertyChanged(nameof(FindingSummary)); }
+    private void RefreshSummary() { RaisePropertyChanged(nameof(StatusText)); RaisePropertyChanged(nameof(SummaryText)); RaisePropertyChanged(nameof(RequestSummary)); RaisePropertyChanged(nameof(CandidateSummary)); RaisePropertyChanged(nameof(FindingSummary)); RaisePropertyChanged(nameof(RunHistorySummary)); }
 }

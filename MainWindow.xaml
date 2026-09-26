@@ -190,6 +190,38 @@
                     </GroupBox>
                 </Grid>
             </TabItem>
+            <TabItem Header="6  実行履歴">
+                <Grid Margin="20">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock Text="{Binding RunHistorySummary}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding RunHistory}" SelectedItem="{Binding SelectedRun}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="開始日時" Binding="{Binding StartedAtDisplay}" Width="150"/>
+                            <DataGridTextColumn Header="状態" Binding="{Binding StatusDisplay}" Width="105"/>
+                            <DataGridTextColumn Header="高速通信" Binding="{Binding FastRequestCount}" Width="80"/>
+                            <DataGridTextColumn Header="AI観測" Binding="{Binding AiObservedCount}" Width="75"/>
+                            <DataGridTextColumn Header="要求/フォーム" Binding="{Binding PatternCountDisplay}" Width="105"/>
+                            <DataGridTextColumn Header="結果概要" Binding="{Binding Summary}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <GroupBox Grid.Row="2" Header="選択した実行" Margin="0,10,0,0" Padding="10">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <TextBlock Text="{Binding SelectedRun.Summary}" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="1" Text="{Binding SelectedRun.Limitations}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,5,0,0"/>
+                            <TextBlock Grid.Row="2" Text="{Binding SelectedRun.Directory}" TextWrapping="Wrap" FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}" Margin="0,8,0,4"/>
+                            <WrapPanel Grid.Row="3">
+                                <Button Content="実行フォルダーを開く" Command="{Binding OpenRunFolderCommand}"/>
+                                <Button Content="実行ログ" Tag="codex-run.log" Click="RunArtifact_Click"/>
+                                <Button Content="AI入力" Tag="ai-input.json" Click="RunArtifact_Click"/>
+                                <Button Content="Codex結果" Tag="codex-result.json" Click="RunArtifact_Click"/>
+                                <Button Content="探索サマリー" Tag="exploration-summary.json" Click="RunArtifact_Click"/>
+                                <Button Content="この設定で再試行" Command="{Binding RetrySelectedRunCommand}" Style="{StaticResource PrimaryActionButton}"/>
+                            </WrapPanel>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

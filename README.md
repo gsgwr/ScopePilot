@@ -36,6 +36,7 @@ ScopePilotは、受託Web診断の事前探索と診断対象リクエストの�
 - 診断所見のJSON/HTMLレポート出力
 - Codexに渡す `engagement.json`、`prompt.md`、`selection-guidance.md`、構造化出力スキーマの生成
 - `%LOCALAPPDATA%\ScopePilot` への案件・実行パッケージ保存
+- 案件ごとの探索実行履歴、結果概要・制約・通信数の一覧表示、実行成果物の参照と再試行
 - 探索コンソールの選択コピー、右クリックコピー、ログ全体コピー
 - Playwright MCPとPortSwigger MCP stdioプロキシのCodex登録
 
@@ -54,6 +55,7 @@ ScopePilotは、受託Web診断の事前探索と診断対象リクエストの�
 7. 完了後、「発見した通信」と「診断対象候補」を確認します。
 8. 採用候補をBurpへ反映する場合は「Burp Scope出力」を押し、生成された `burp-scope-regex.txt` をBurpのTarget > Scopeへ手動登録します。
 9. Codexが所見を出力した場合は「診断所見」タブで根拠と制約を確認し、「所見レポート出力」でJSON/HTMLを保存します。
+10. 過去の結果や失敗理由は「実行履歴」タブで確認します。選択した実行のログ、AI入力、Codex結果、探索サマリーを直接開けます。
 
 高速クロールで `ERR_PROXY_CONNECTION_FAILED` が表示された場合は、開始URLへ到達できていません。BurpのProxy settingsで `127.0.0.1:8080` のListenerを有効にし、ScopePilotの「環境チェック」でBurp ProxyがOKになってから再実行してください。通信をBurpで観測できない状態では、Codex探索へ進めず失敗として停止します。
 

@@ -65,4 +65,9 @@ public partial class MainWindow : Window
 
     private void GuidelineCheckBox_Click(object sender, RoutedEventArgs e) =>
         Dispatcher.BeginInvoke(new Action(() => _ = _viewModel.ApplyGuidelineSelectionAsync()));
+
+    private void RunArtifact_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string fileName }) _viewModel.OpenSelectedRunArtifact(fileName);
+    }
 }
