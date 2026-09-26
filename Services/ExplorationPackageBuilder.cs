@@ -32,6 +32,7 @@ public sealed class ExplorationPackageBuilder
             deferredCandidatePatterns = project.DeferredCandidatePatterns,
             guidelines = project.Guidelines,
             roles = Split(project.Roles),
+            activeRole = project.ActiveRole,
             forbiddenActions = Split(project.ForbiddenActions),
             limits = new { project.MaxPages, project.MaxMinutes, project.MaxRequests }
         };
@@ -84,6 +85,7 @@ public sealed class ExplorationPackageBuilder
         var prompt = new StringBuilder()
             .AppendLine("あなたは受託Web診断の事前調査を行う探索エージェントです。")
             .AppendLine("engagement.json、selection-guidance.md、ai-input.jsonを読み、ガイドライン由来の一次選定基準に沿ってai-input.jsonの代表パターンだけをPlaywright MCPで確認してください。ai-input.jsonには前回採用済みと新規発見パターンだけが含まれます。外部のガイドライン全文を毎回取得しないでください。")
+            .AppendLine("engagement.jsonのactiveRoleが今回確認する認証ロールです。観測通信のroleには必ずactiveRoleを記録してください。未認証ロール以外では開始URLまたはログイン画面を開いた後、認証情報を自動入力せずhuman-intervention.jsonを作成し、人がログインしてresume.signalを作るまで同じブラウザセッションで待機してください。再開後、画面上で確認できる範囲でロールを検証し、確認できない場合はその制約を結果へ記録してください。")
             .AppendLine("ai-input.jsonのcategory、reasons、guidelineBasisはアプリによる仮分類です。実際の画面でフォーム・認証差・API・AI機能などを確認し、仮分類と異なる場合はexploration-summary.jsonに根拠と限界を記録してください。")
             .AppendLine("engagement.jsonのadoptedCandidatePatternsは前回採用済み、deferredCandidatePatternsは前回除外済みです。ai-input.jsonにない除外済みパターンを独自に復活させて調査しないでください。")
             .AppendLine("engagement.jsonのguidelinesでfalseになっているガイドラインは参照・適用しないでください。selection-guidance.mdとai-input.jsonのguidelineBasisにも無効なガイドラインを記載しないでください。")

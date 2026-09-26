@@ -24,6 +24,7 @@ public sealed class EngagementProject
     public string AllowedOrigins { get; set; } = string.Empty;
     public string SupportingOrigins { get; set; } = string.Empty;
     public string Roles { get; set; } = "未認証\n一般ユーザー";
+    public string ActiveRole { get; set; } = "未認証";
     public string ForbiddenActions { get; set; } = "削除\n購入・決済\n申請・承認\nメール・通知送信\nファイルアップロード\nログアウト";
     public int MaxPages { get; set; } = 500;
     public int MaxMinutes { get; set; } = 30;

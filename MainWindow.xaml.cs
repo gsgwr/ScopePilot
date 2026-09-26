@@ -70,4 +70,7 @@ public partial class MainWindow : Window
     {
         if (sender is Button { Tag: string fileName }) _viewModel.OpenSelectedRunArtifact(fileName);
     }
+
+    private void RolesTextBox_TextChanged(object sender, TextChangedEventArgs e) =>
+        Dispatcher.BeginInvoke(new Action(_viewModel.UpdateRoleOptions));
 }

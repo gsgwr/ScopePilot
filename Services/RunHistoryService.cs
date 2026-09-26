@@ -18,6 +18,7 @@ public sealed record ExplorationRunSummary(
 {
     public string StartedAtDisplay => StartedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss");
     public string PatternCountDisplay => $"{RequestPatternCount:N0} / {FormPatternCount:N0}";
+    public string Role { get; init; } = "未認証";
     public int NewPatternCount { get; init; }
     public int ChangedPatternCount { get; init; }
     public int MissingPatternCount { get; init; }
@@ -125,7 +126,8 @@ public sealed class RunHistoryService
             _ => string.Empty
         };
         return new(directory.Name, directory.FullName, startedAt, status, StatusDisplay(status), fastRequestCount,
-            aiObservedCount, requestPatterns, formPatterns, summary, limitations);
+            aiObservedCount, requestPatterns, formPatterns, summary, limitations)
+        { Role = ReadString(engagement, "activeRole") is { Length: > 0 } role ? role : "未認証" };
     }
 
     private static string StatusDisplay(string status) => status.ToLowerInvariant() switch

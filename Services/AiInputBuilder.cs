@@ -25,7 +25,7 @@ public sealed class AiInputBuilder
         var requests = File.Exists(requestFile)
             ? await _importer.ImportAsync(requestFile)
             : Array.Empty<ObservedRequest>();
-        var (adoptedPatterns, deferredPatterns, guidelines, startUrl) = await ReadRunSettingsAsync(Path.Combine(runDirectory, "engagement.json"));
+        var (adoptedPatterns, deferredPatterns, guidelines, startUrl, activeRole) = await ReadRunSettingsAsync(Path.Combine(runDirectory, "engagement.json"));
 
         var selectedRequests = new List<(ObservedRequest Request, SelectionAssessment Assessment, bool PreviouslyAdopted)>();
         var staticExcluded = 0;
@@ -125,6 +125,7 @@ public sealed class AiInputBuilder
         var output = new
         {
             generatedAt = DateTimeOffset.Now,
+            targetRole = activeRole,
             policy = new
             {
                 description = "前回採用済みと新規発見パターンを収録し、除外キャッシュを省いています。観測可能な選定規則による一次分類であり、除外は安全性の証明ではありません。",
@@ -151,7 +152,7 @@ public sealed class AiInputBuilder
         var outputPath = Path.Combine(runDirectory, "ai-input.json");
         await File.WriteAllTextAsync(outputPath, JsonSerializer.Serialize(output, new JsonSerializerOptions { WriteIndented = true }));
         return new AiInputBuildResult(
-            keptRequests.Length + keptForms.Length > 0,
+            keptRequests.Length + keptForms.Length > 0 || !IsUnauthenticatedRole(activeRole),
             requests.Count,
             staticExcluded,
             deferredExcluded,
@@ -212,9 +213,9 @@ public sealed class AiInputBuilder
         return UrlPatternNormalizer.NormalizeForSelection(value);
     }
 
-    private static async Task<(HashSet<string> Adopted, HashSet<string> Deferred, GuidelineSelectionOptions Guidelines, string StartUrl)> ReadRunSettingsAsync(string path)
+    private static async Task<(HashSet<string> Adopted, HashSet<string> Deferred, GuidelineSelectionOptions Guidelines, string StartUrl, string ActiveRole)> ReadRunSettingsAsync(string path)
     {
-        if (!File.Exists(path)) return (new(StringComparer.OrdinalIgnoreCase), new(StringComparer.OrdinalIgnoreCase), new GuidelineSelectionOptions(), string.Empty);
+        if (!File.Exists(path)) return (new(StringComparer.OrdinalIgnoreCase), new(StringComparer.OrdinalIgnoreCase), new GuidelineSelectionOptions(), string.Empty, "未認証");
         try
         {
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path));
@@ -227,10 +228,16 @@ public sealed class AiInputBuilder
             var startUrl = startUrlElement.ValueKind == JsonValueKind.String
                 ? startUrlElement.GetString() ?? string.Empty
                 : string.Empty;
-            return (ReadPatterns(root, "adoptedCandidatePatterns"), ReadPatterns(root, "deferredCandidatePatterns"), guidelines, startUrl);
+            var activeRole = root.TryGetProperty("activeRole", out var activeRoleElement) && activeRoleElement.ValueKind == JsonValueKind.String
+                ? activeRoleElement.GetString() ?? "未認証" : "未認証";
+            return (ReadPatterns(root, "adoptedCandidatePatterns"), ReadPatterns(root, "deferredCandidatePatterns"), guidelines, startUrl, activeRole);
         }
-        catch (JsonException) { return (new(StringComparer.OrdinalIgnoreCase), new(StringComparer.OrdinalIgnoreCase), new GuidelineSelectionOptions(), string.Empty); }
+        catch (JsonException) { return (new(StringComparer.OrdinalIgnoreCase), new(StringComparer.OrdinalIgnoreCase), new GuidelineSelectionOptions(), string.Empty, "未認証"); }
     }
+
+    private static bool IsUnauthenticatedRole(string role) =>
+        string.IsNullOrWhiteSpace(role) || role.Contains("未認証", StringComparison.OrdinalIgnoreCase) ||
+        role.Equals("anonymous", StringComparison.OrdinalIgnoreCase) || role.Equals("guest", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSameRequestUrl(string requestUrl, string startUrl)
     {

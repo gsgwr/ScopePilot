@@ -54,6 +54,7 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<string> Logs { get; } = [];
     public ObservableCollection<SavedProjectInfo> SavedProjects { get; } = [];
     public ObservableCollection<ExplorationRunSummary> RunHistory { get; } = [];
+    public ObservableCollection<string> RoleOptions { get; } = [];
     public AsyncRelayCommand SaveCommand { get; }
     public AsyncRelayCommand NewProjectCommand { get; }
     public AsyncRelayCommand LoadProjectCommand { get; }
@@ -121,6 +122,7 @@ public sealed class MainViewModel : ObservableObject
         {
             Project = await _store.LoadLatestAsync() ?? new EngagementProject();
             PrepareProject(Project);
+            UpdateRoleOptions();
             var removedStartUrlCache = RemoveStartUrlFromDeferredCache();
             Log(Project.CreatedAt == Project.UpdatedAt ? "新規案件を開始しました。" : "直近の案件を復元しました。");
             if (removedStartUrlCache)
@@ -219,6 +221,7 @@ public sealed class MainViewModel : ObservableObject
         {
             await _store.SaveAsync(Project);
             Project = new EngagementProject();
+            UpdateRoleOptions();
             _currentRunDirectory = null;
             InterventionText = string.Empty;
             SelectedCandidate = null;
@@ -249,6 +252,7 @@ public sealed class MainViewModel : ObservableObject
             }
             PrepareProject(loaded);
             Project = loaded;
+            UpdateRoleOptions();
             _currentRunDirectory = null;
             InterventionText = string.Empty;
             SelectedCandidate = null;
@@ -335,6 +339,18 @@ public sealed class MainViewModel : ObservableObject
         foreach (var request in project.Requests) RequestImporter.Normalize(request);
     }
 
+    public void UpdateRoleOptions()
+    {
+        var roles = Project.Roles.Split(['\r', '\n', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (!roles.Contains("未認証", StringComparer.OrdinalIgnoreCase)) roles.Insert(0, "未認証");
+        RoleOptions.Clear();
+        foreach (var role in roles) RoleOptions.Add(role);
+        if (string.IsNullOrWhiteSpace(Project.ActiveRole) || !roles.Contains(Project.ActiveRole, StringComparer.OrdinalIgnoreCase))
+            Project.ActiveRole = roles[0];
+        RaisePropertyChanged(nameof(Project));
+    }
+
     private static void MergeObservation(ObservedRequest existing, ObservedRequest incoming)
     {
         existing.PageInspected |= incoming.PageInspected;
@@ -374,6 +390,8 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task StartExplorationAsync()
     {
+        UpdateRoleOptions();
+        Log($"探索対象ロール: {Project.ActiveRole}");
         Log("MCP設定を確認しています。");
         var setup = await _mcpSetup.ConfigureAsync();
         foreach (var message in setup.Messages) Log(message);

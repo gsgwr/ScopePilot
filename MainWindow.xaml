@@ -112,7 +112,9 @@
                                 <TextBlock Grid.Row="2" Text="最大通信数"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Project.MaxRequests}"/>
                             </Grid></GroupBox>
                             <GroupBox Header="アカウントと操作制限"><StackPanel>
-                                <TextBlock Text="認証ロール（1行1件）"/><TextBox Text="{Binding Project.Roles, UpdateSourceTrigger=PropertyChanged}" Height="70" AcceptsReturn="True"/>
+                                <TextBlock Text="認証ロール（1行1件）"/><TextBox Text="{Binding Project.Roles, UpdateSourceTrigger=PropertyChanged}" Height="70" AcceptsReturn="True" TextChanged="RolesTextBox_TextChanged"/>
+                                <TextBlock Text="今回探索するロール" Margin="0,8,0,0"/><ListBox ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding Project.ActiveRole, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="64"/>
+                                <TextBlock Text="未認証以外では、Codexがログイン画面を開いた後に手動操作を求めます。認証後は同じブラウザセッションで探索を続けます。" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,3,0,8"/>
                                 <TextBlock Text="自動実行しない操作（1行1件）"/><TextBox Text="{Binding Project.ForbiddenActions, UpdateSourceTrigger=PropertyChanged}" Height="120" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
                             </StackPanel></GroupBox>
                             <WrapPanel HorizontalAlignment="Right"><Button Content="新しい案件を開始" Command="{Binding NewProjectCommand}"/><Button Content="環境チェック" Command="{Binding CheckEnvironmentCommand}"/><Button Content="MCPをセットアップ" Command="{Binding SetupMcpCommand}"/><Button Content="案件を保存" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryActionButton}"/></WrapPanel>
@@ -197,6 +199,7 @@
                     <DataGrid Grid.Row="1" ItemsSource="{Binding RunHistory}" SelectedItem="{Binding SelectedRun}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="開始日時" Binding="{Binding StartedAtDisplay}" Width="150"/>
+                            <DataGridTextColumn Header="ロール" Binding="{Binding Role}" Width="120"/>
                             <DataGridTextColumn Header="状態" Binding="{Binding StatusDisplay}" Width="105"/>
                             <DataGridTextColumn Header="高速通信" Binding="{Binding FastRequestCount}" Width="80"/>
                             <DataGridTextColumn Header="AI観測" Binding="{Binding AiObservedCount}" Width="75"/>
