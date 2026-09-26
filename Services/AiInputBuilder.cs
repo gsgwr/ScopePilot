@@ -71,6 +71,7 @@ public sealed class AiInputBuilder
                     occurrences = group.Count(),
                     statusCodes = group.Select(x => x.Request.StatusCode).Where(x => x.HasValue).Distinct().Order().ToArray(),
                     contentTypes = group.Select(x => BaseContentType(x.Request.ContentType)).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).Take(5).ToArray(),
+                    roles = group.Select(x => ObservedRequestIdentity.NormalizeRole(x.Request.Role)).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray(),
                     category = first.Assessment.Category,
                     reasons = group.SelectMany(x => x.Assessment.Signals).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
                     guidelineBasis = group.SelectMany(x => x.Assessment.References).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(),

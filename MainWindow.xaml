@@ -146,7 +146,7 @@
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <TextBlock Text="{Binding RequestSummary}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
                     <DataGrid Grid.Row="1" ItemsSource="{Binding Project.Requests}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal"><DataGrid.Columns>
-                        <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="85"/><DataGridTextColumn Header="Status" Binding="{Binding StatusCode}" Width="75"/><DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="*"/><DataGridTextColumn Header="Content-Type" Binding="{Binding ContentType}" Width="180"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="100"/>
+                        <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="85"/><DataGridTextColumn Header="Status" Binding="{Binding StatusCode}" Width="75"/><DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="*"/><DataGridTextColumn Header="認証ロール" Binding="{Binding Role}" Width="180"/><DataGridTextColumn Header="Content-Type" Binding="{Binding ContentType}" Width="180"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="120"/>
                     </DataGrid.Columns></DataGrid>
                 </Grid>
             </TabItem>

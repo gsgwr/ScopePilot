@@ -24,6 +24,8 @@ public sealed class CandidateSelector
             .SelectMany(x => x.Assessment.Signals).Distinct(StringComparer.Ordinal).ToArray();
         var references = assessed.SelectMany(x => x.Assessment.References).Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal).ToArray();
+        var roles = assessed.Select(x => ObservedRequestIdentity.NormalizeRole(x.Request.Role))
+            .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
         var count = assessed.Length;
         var reason = chosen.Assessment.Reason;
         if (count > 1) reason += $" 同一URL構造の{count:N0}件をまとめ、このURLを代表にしています。";
@@ -33,8 +35,9 @@ public sealed class CandidateSelector
             $"2. 代表通信: {chosen.Request.Method} {chosen.Request.Url}",
             $"3. 応答: Status {chosen.Request.StatusCode?.ToString() ?? "不明"}, Content-Type {(string.IsNullOrWhiteSpace(chosen.Request.ContentType) ? "不明" : chosen.Request.ContentType)}",
             $"4. 画面確認: {(chosen.Request.PageInspected ? $"実施、フォーム{chosen.Request.FormCount}件" : "未実施または記録なし")}",
-            $"5. 判定材料: {string.Join("／", evidence)}",
-            $"6. 参照基準: {string.Join("、", references)}",
+            $"5. 観測ロール: {string.Join("、", roles)}",
+            $"6. 判定材料: {string.Join("／", evidence)}",
+            $"7. 参照基準: {string.Join("、", references)}",
             $"最終判定: {(chosen.Assessment.Selected ? "採用" : "除外候補")}。メタデータによる一次選定であり、安全性や脆弱性の証明ではありません。"
         });
         return new DiagnosticCandidate

@@ -123,19 +123,20 @@ public sealed class MainViewModel : ObservableObject
             Log($"取込開始: {path}");
             var imported = await _importer.ImportAsync(path);
             foreach (var request in Project.Requests) RequestImporter.Normalize(request);
-            var known = Project.Requests.Select(x => $"{x.Method} {x.Url}").ToHashSet(StringComparer.Ordinal);
+            var known = Project.Requests
+                .GroupBy(ObservedRequestIdentity.Build, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
             var added = 0;
             foreach (var request in imported)
             {
-                if (known.Add($"{request.Method} {request.Url}")) { Project.Requests.Add(request); added++; }
-                else if (request.PageInspected)
+                var key = ObservedRequestIdentity.Build(request);
+                if (!known.TryGetValue(key, out var existing))
                 {
-                    var existing = Project.Requests.First(x => x.Method == request.Method && x.Url == request.Url);
-                    existing.PageInspected = true;
-                    existing.FormCount = request.FormCount;
-                    existing.FormFieldNames = request.FormFieldNames;
-                    if (!string.IsNullOrWhiteSpace(request.PageTitle)) existing.PageTitle = request.PageTitle;
+                    Project.Requests.Add(request);
+                    known[key] = request;
+                    added++;
                 }
+                else MergeObservation(existing, request);
             }
             Log($"{imported.Count:N0}件を読み取り、{added:N0}件を追加しました。");
             GenerateCandidates();
@@ -268,6 +269,20 @@ public sealed class MainViewModel : ObservableObject
         project.DeferredCandidatePatterns ??= [];
         project.ExplicitlyReviewedCandidatePatterns ??= [];
         foreach (var request in project.Requests) RequestImporter.Normalize(request);
+    }
+
+    private static void MergeObservation(ObservedRequest existing, ObservedRequest incoming)
+    {
+        existing.PageInspected |= incoming.PageInspected;
+        existing.FormCount = Math.Max(existing.FormCount, incoming.FormCount);
+        existing.FormFieldNames = existing.FormFieldNames.Concat(incoming.FormFieldNames)
+            .Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (incoming.StatusCode.HasValue) existing.StatusCode = incoming.StatusCode;
+        if (!string.IsNullOrWhiteSpace(incoming.ContentType)) existing.ContentType = incoming.ContentType;
+        if (!string.IsNullOrWhiteSpace(incoming.PageTitle)) existing.PageTitle = incoming.PageTitle;
+        if (!string.IsNullOrWhiteSpace(incoming.Source)) existing.Source = incoming.Source;
+        if (!string.IsNullOrWhiteSpace(incoming.Role)) existing.Role = incoming.Role;
+        if (incoming.ObservedAt > existing.ObservedAt) existing.ObservedAt = incoming.ObservedAt;
     }
 
     private async Task CheckEnvironmentAsync()

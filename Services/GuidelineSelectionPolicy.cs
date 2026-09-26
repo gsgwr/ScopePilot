@@ -125,7 +125,7 @@ public static class GuidelineSelectionPolicy
             if (request.StatusCode is 401 or 403) AddReference(references, guidelines.OwaspTop10, "OWASP Top 10:2025 A01/A07");
             if (request.StatusCode >= 500) AddReference(references, guidelines.OwaspTop10, "OWASP Top 10:2025 A10");
         }
-        if (!string.IsNullOrWhiteSpace(request.Role) && request.Role != "未認証" && (guidelines.WebAppPentestGuidelines || guidelines.OwaspTop10 || guidelines.Asvs))
+        if (ObservedRequestIdentity.IsAuthenticatedRole(request.Role) && (guidelines.WebAppPentestGuidelines || guidelines.OwaspTop10 || guidelines.Asvs))
         {
             signals.Add($"認証状態: {request.Role}");
             AddReference(references, guidelines.OwaspTop10, "OWASP Top 10:2025 A01");
