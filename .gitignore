@@ -1,0 +1,19 @@
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+
+# Published installers and archives are generated artifacts.
+../ScopePilot-publish-*/
+../ScopePilot-MVP-*.zip
+
+# Playwright's installed browser/runtime dependencies are restored separately.
+tools/playwright-runtime/node_modules/
+tools/playwright-runtime/.cache/
+
+# Local run data and secrets.
+engagement.json
+runs/
+projects/
+*.local.json
