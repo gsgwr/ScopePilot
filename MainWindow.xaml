@@ -147,7 +147,10 @@
             <TabItem Header="4  診断対象候補">
                 <Grid Margin="20">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <TextBlock Text="{Binding CandidateSummary}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                    <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding CandidateSummary}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Content="採用・除外の記録を解除" Command="{Binding ResetCandidateDecisionsCommand}" Margin="12,0,0,0" ToolTip="この案件で保存した採用・除外の判断をすべて解除し、現在の観測通信から候補を再判定します。"/>
+                    </Grid>
                     <DataGrid Grid.Row="1" ItemsSource="{Binding Project.Candidates}" SelectedItem="{Binding SelectedCandidate}" AutoGenerateColumns="False" CanUserAddRows="False" GridLinesVisibility="Horizontal" CellEditEnding="CandidateGrid_CellEditEnding"><DataGrid.Columns>
                         <DataGridCheckBoxColumn Header="採用" Binding="{Binding Selected}" Width="60"/><DataGridTextColumn Header="判定" Binding="{Binding Decision}" Width="85" IsReadOnly="True"/><DataGridTextColumn Header="確信度" Binding="{Binding Confidence}" Width="70" IsReadOnly="True"/><DataGridTextColumn Header="分類" Binding="{Binding Category}" Width="130" IsReadOnly="True"/><DataGridTextColumn Header="Method" Binding="{Binding Representative.Method}" Width="75" IsReadOnly="True"/>
                         <DataGridTemplateColumn Header="代表URL" Width="2*" IsReadOnly="True"><DataGridTemplateColumn.CellTemplate><DataTemplate>
@@ -160,7 +163,7 @@
                             <Border Background="{DynamicResource WarningBackground}" BorderBrush="{DynamicResource WarningBorder}" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,8,0,0"><StackPanel><TextBlock Text="診断実行時の注意" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedCandidate.DiagnosticCaution}" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel></Border>
                         </StackPanel>
                     </GroupBox>
-                    <TextBlock Grid.Row="3" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Text="チェックを外した候補は除外キャッシュへ保存し、次回はCodexの確認対象から外します。採用済み候補と新規発見パターンは次回の対象です。候補を再採用するとキャッシュから外れます。高速クローラは新規URLを見つけるため次回も巡回します。"/>
+                    <TextBlock Grid.Row="3" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Text="チェックを外した候補は除外キャッシュへ保存し、次回はCodexの確認対象から外します。採用済み候補と新規発見パターンは次回の対象です。候補を再採用するとキャッシュから外れます。［採用・除外の記録を解除］で、この案件の判断を初期化して再判定できます。高速クローラは新規URLを見つけるため次回も巡回します。"/>
                 </Grid>
             </TabItem>
             <TabItem Header="5  診断所見">

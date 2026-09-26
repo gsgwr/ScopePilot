@@ -38,6 +38,7 @@ public sealed class MainViewModel : ObservableObject
         StopExplorationCommand = new RelayCommand(StopExploration, () => IsRunning);
         ResumeExplorationCommand = new RelayCommand(ResumeExploration, () => IsRunning && Project.Status == ProjectStatus.WaitingForHuman);
         GenerateCandidatesCommand = new RelayCommand(GenerateCandidates);
+        ResetCandidateDecisionsCommand = new AsyncRelayCommand(ResetCandidateDecisionsAsync, () => !IsRunning);
         ExportBurpScopeCommand = new AsyncRelayCommand(ExportBurpScopeAsync, () => !IsRunning);
         ExportFindingsCommand = new AsyncRelayCommand(ExportFindingsAsync, () => !IsRunning);
     }
@@ -53,6 +54,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand StopExplorationCommand { get; }
     public RelayCommand ResumeExplorationCommand { get; }
     public RelayCommand GenerateCandidatesCommand { get; }
+    public AsyncRelayCommand ResetCandidateDecisionsCommand { get; }
     public AsyncRelayCommand ExportBurpScopeCommand { get; }
     public AsyncRelayCommand ExportFindingsCommand { get; }
     public bool IsRunning
@@ -65,6 +67,7 @@ public sealed class MainViewModel : ObservableObject
             NewProjectCommand.RaiseCanExecuteChanged();
             StopExplorationCommand.RaiseCanExecuteChanged();
             ResumeExplorationCommand.RaiseCanExecuteChanged();
+            ResetCandidateDecisionsCommand.RaiseCanExecuteChanged();
             ExportBurpScopeCommand.RaiseCanExecuteChanged();
             ExportFindingsCommand.RaiseCanExecuteChanged();
         }
@@ -162,6 +165,21 @@ public sealed class MainViewModel : ObservableObject
         GenerateCandidates();
         await SaveAsync();
         Log("参照ガイドラインの変更を候補選定と案件設定へ反映しました。");
+    }
+
+    private async Task ResetCandidateDecisionsAsync()
+    {
+        var adoptedCount = Project.AdoptedCandidatePatterns.Count;
+        var deferredCount = Project.DeferredCandidatePatterns.Count;
+        var reviewedCount = Project.ExplicitlyReviewedCandidatePatterns.Count;
+        Project.AdoptedCandidatePatterns.Clear();
+        Project.DeferredCandidatePatterns.Clear();
+        Project.ExplicitlyReviewedCandidatePatterns.Clear();
+        Project.Candidates.Clear();
+        GenerateCandidates();
+        await _store.SaveAsync(Project);
+        Log($"候補判定の保存記録を解除しました: 採用{adoptedCount:N0}件、除外{deferredCount:N0}件、確認済み{reviewedCount:N0}件。現在の観測通信から候補を再生成しました。");
+        RefreshSummary();
     }
 
     private async Task NewProjectAsync()
