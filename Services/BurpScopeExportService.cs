@@ -9,12 +9,17 @@ public sealed record BurpScopeExportResult(string Directory, string RegexPath, s
 
 public sealed class BurpScopeExportService
 {
+    private readonly string _exportsDirectory;
+
+    public BurpScopeExportService(string? exportsDirectory = null) => _exportsDirectory = exportsDirectory ?? Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScopePilot", "exports");
+
     public async Task<BurpScopeExportResult> ExportAsync(EngagementProject project)
     {
         var selected = project.Candidates.Where(x => x.Selected).ToArray();
         if (selected.Length == 0) throw new InvalidOperationException("採用された診断対象候補がありません。候補一覧で採用してください。");
 
-        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScopePilot", "exports", project.Id.ToString("N"));
+        var root = Path.Combine(_exportsDirectory, project.Id.ToString("N"));
         var directory = Path.Combine(root, DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss-fff"));
         Directory.CreateDirectory(directory);
 

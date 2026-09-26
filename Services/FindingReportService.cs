@@ -10,9 +10,14 @@ public sealed record FindingReportResult(string Directory, string JsonPath, stri
 
 public sealed class FindingReportService
 {
+    private readonly string _reportsDirectory;
+
+    public FindingReportService(string? reportsDirectory = null) => _reportsDirectory = reportsDirectory ?? Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScopePilot", "reports");
+
     public async Task<FindingReportResult> ExportAsync(EngagementProject project)
     {
-        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScopePilot", "reports", project.Id.ToString("N"));
+        var root = Path.Combine(_reportsDirectory, project.Id.ToString("N"));
         var directory = Path.Combine(root, DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss-fff"));
         Directory.CreateDirectory(directory);
         var jsonPath = Path.Combine(directory, "engagement-report.json");

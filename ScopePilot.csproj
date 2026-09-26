@@ -9,6 +9,10 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Tests\**\*.cs" />
+    <None Include="Tests\**\*" Exclude="Tests\**\bin\**;Tests\**\obj\**" />
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="tools\playwright-runtime\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

@@ -81,6 +81,8 @@ dotnet run
 
 GitHub Actionsでも同じ手順でPlaywright MCPランタイムを復元し、win-x64の自己完結型配布物を成果物として生成します。
 
+主要ロジックの自動テストは `dotnet test Tests/ScopePilot.Tests.csproj -c Release` で実行できます。URL代表化、認証ロール、AI入力除外、実行差分、Burp連携、案件レポート、バックアップを検証します。
+
 ## MCPの前提
 
 - Playwright MCP本体はアプリに同梱され、インストール済みNode.jsから直接起動します。

@@ -39,6 +39,9 @@ jobs:
       - name: Build
         run: dotnet build ScopePilot.csproj -c Release --no-restore
 
+      - name: Test
+        run: dotnet test Tests/ScopePilot.Tests.csproj -c Release
+
       - name: Publish Windows package
         run: dotnet publish ScopePilot.csproj -c Release -r win-x64 --self-contained true --no-restore -o publish
 
