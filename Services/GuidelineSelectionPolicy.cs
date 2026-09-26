@@ -26,9 +26,9 @@ public static class GuidelineSelectionPolicy
         if (!Uri.TryCreate(request.Url, UriKind.Absolute, out var uri))
             return new(true, "要確認", "低", "URLを解析できないため手動確認が必要です。", "元の通信を確認してください。", ["URL解析失敗"], Enabled(guidelines.Wstg, "WSTG-INFO-06"), false, false);
 
-        var method = request.Method.ToUpperInvariant();
+        var method = (request.Method ?? "GET").ToUpperInvariant();
         var queryNames = QueryNames(uri.Query).Where(x => !CacheKeys.Contains(x)).ToArray();
-        var contentType = request.ContentType.Split(';', 2)[0].Trim();
+        var contentType = (request.ContentType ?? string.Empty).Split(';', 2)[0].Trim();
         var path = uri.AbsolutePath;
         var unusualStatus = request.StatusCode is >= 300 and < 400 or 401 or 403 or >= 500;
         var isAsset = method is "GET" or "HEAD" && !unusualStatus &&
@@ -116,7 +116,7 @@ public static class GuidelineSelectionPolicy
         if (request.FormCount > 0 && (guidelines.Wstg || guidelines.OwaspTop10 || guidelines.Asvs || guidelines.WebAppPentestGuidelines))
         {
             signals.Add($"画面でフォーム{request.FormCount}件を観測" +
-                (request.FormFieldNames.Length > 0 ? $"（{string.Join(", ", request.FormFieldNames.Take(10))}）" : string.Empty));
+                (request.FormFieldNames is { Length: > 0 } ? $"（{string.Join(", ", request.FormFieldNames.Take(10))}）" : string.Empty));
             AddReference(references, guidelines.OwaspTop10, "OWASP Top 10:2025 A05");
         }
         if (unusualStatus && (guidelines.Wstg || guidelines.OwaspTop10 || guidelines.Asvs || guidelines.Ds221))

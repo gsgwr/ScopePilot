@@ -85,8 +85,13 @@ public sealed class MainViewModel : ObservableObject
         {
             Project = await _store.LoadLatestAsync() ?? new EngagementProject();
             Project.Guidelines ??= new GuidelineSelectionOptions();
+            Project.Requests ??= [];
+            Project.Candidates ??= [];
             Project.Findings ??= [];
+            Project.AdoptedCandidatePatterns ??= [];
+            Project.DeferredCandidatePatterns ??= [];
             Project.ExplicitlyReviewedCandidatePatterns ??= [];
+            foreach (var request in Project.Requests) RequestImporter.Normalize(request);
             var removedStartUrlCache = RemoveStartUrlFromDeferredCache();
             Log(Project.CreatedAt == Project.UpdatedAt ? "新規案件を開始しました。" : "直近の案件を復元しました。");
             if (removedStartUrlCache)
@@ -107,6 +112,7 @@ public sealed class MainViewModel : ObservableObject
         {
             Log($"取込開始: {path}");
             var imported = await _importer.ImportAsync(path);
+            foreach (var request in Project.Requests) RequestImporter.Normalize(request);
             var known = Project.Requests.Select(x => $"{x.Method} {x.Url}").ToHashSet(StringComparer.Ordinal);
             var added = 0;
             foreach (var request in imported)
@@ -126,7 +132,7 @@ public sealed class MainViewModel : ObservableObject
             await SaveAsync();
             return imported.Count;
         }
-        catch (Exception ex) { Log($"取込失敗: {ex.Message}"); return 0; }
+        catch (Exception ex) { Log($"取込失敗 ({ex.GetType().Name}): {ex.Message}{Environment.NewLine}{ex.StackTrace}"); return 0; }
     }
 
     private async Task SaveAsync()

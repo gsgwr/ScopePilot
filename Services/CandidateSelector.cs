@@ -6,7 +6,7 @@ public sealed class CandidateSelector
 {
     public IReadOnlyList<DiagnosticCandidate> Select(IEnumerable<ObservedRequest> requests, GuidelineSelectionOptions? guidelines = null) => requests
         .Where(x => Uri.TryCreate(x.Url, UriKind.Absolute, out _))
-        .GroupBy(x => $"{x.Method.ToUpperInvariant()} {UrlPatternNormalizer.NormalizeForSelection(x.Url)}", StringComparer.OrdinalIgnoreCase)
+        .GroupBy(x => $"{(x.Method ?? "GET").ToUpperInvariant()} {UrlPatternNormalizer.NormalizeForSelection(x.Url ?? string.Empty)}", StringComparer.OrdinalIgnoreCase)
         .Select(group => CreateCandidate(group, guidelines ?? new GuidelineSelectionOptions()))
         .OrderByDescending(x => x.Selected)
         .ThenByDescending(x => Score(x))
@@ -55,7 +55,7 @@ public sealed class CandidateSelector
 
     private static int Score(DiagnosticCandidate candidate)
     {
-        var score = candidate.Representative.Method.ToUpperInvariant() is not ("GET" or "HEAD" or "OPTIONS") ? 20 : 0;
+        var score = (candidate.Representative.Method ?? "GET").ToUpperInvariant() is not ("GET" or "HEAD" or "OPTIONS") ? 20 : 0;
         score += candidate.Category switch
         {
             "認証・セッション" => 40,

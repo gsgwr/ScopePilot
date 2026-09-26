@@ -59,7 +59,11 @@ public sealed class RequestImporter
             {
                 var item = JsonSerializer.Deserialize<ObservedRequest>(line,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (item is not null && Uri.TryCreate(item.Url, UriKind.Absolute, out _)) result.Add(item);
+                if (item is not null)
+                {
+                    Normalize(item);
+                    if (Uri.TryCreate(item.Url, UriKind.Absolute, out _)) result.Add(item);
+                }
             }
             catch (JsonException ex)
             {
@@ -67,6 +71,18 @@ public sealed class RequestImporter
             }
         }
         return result;
+    }
+
+    public static void Normalize(ObservedRequest request)
+    {
+        request.Id = string.IsNullOrWhiteSpace(request.Id) ? Guid.NewGuid().ToString("N") : request.Id;
+        request.Method = string.IsNullOrWhiteSpace(request.Method) ? "GET" : request.Method;
+        request.Url ??= string.Empty;
+        request.ContentType ??= string.Empty;
+        request.Source = string.IsNullOrWhiteSpace(request.Source) ? "Import" : request.Source;
+        request.Role ??= string.Empty;
+        request.PageTitle ??= string.Empty;
+        request.FormFieldNames ??= [];
     }
 
     private static async Task<IReadOnlyList<ObservedRequest>> ImportUrlListAsync(string path)
