@@ -19,6 +19,7 @@ ScopePilotは、受託Web診断の事前探索と診断対象リクエストの�
 - Codex探索ジョブの起動、実行ログ表示、停止
 - Playwrightによる画面探索とBurp経由の通信観測
 - 高速GETクローラによるサイト全体のリンク巡回
+- `robots.txt`のSitemap指定と同一Originの`sitemap.xml`からのURL発見（既存の上限・禁止操作・許可Originを適用）
 - HTTPメソッド、Content-Type、拡張子、URL、クエリ、フォーム、応答ステータス、認証ロールによるAI投入前のパターン分類
 - 静的ページ・画像・CSS・JavaScript・フォント等のAI入力除外と、動的代表パターンへの集約
 - AI確認対象がない場合のCodex探索自動省略
@@ -32,7 +33,7 @@ ScopePilotは、受託Web診断の事前探索と診断対象リクエストの�
 - 探索コンソールの選択コピー、右クリックコピー、ログ全体コピー
 - Playwright MCPとPortSwigger MCP stdioプロキシのCodex登録
 
-高速クロールの全件ログは証跡として保存しますが、Codexには渡しません。ScopePilotが確認対象のリクエストとフォームをアプリ側で代表化し、最大200リクエストパターン・100フォームパターンの `ai-input.json` と短いガイドライン要約だけをCodexへ渡します。Codexは代表的な機能の確認と追加通信の収集を担当し、結果をScopePilotが候補へ変換します。未確認HTMLを静的と断定せず、フォーム付き画面、認証・認可境界、API、エラー応答などを残します。選定は一次判定であり、脆弱性や安全性の判定ではありません。
+高速クロールの全件ログは証跡として保存しますが、Codexには渡しません。ScopePilotが確認対象のリクエストとフォームをアプリ側で代表化し、最大200リクエストパターン・100フォームパターンの `ai-input.json` と短いガイドライン要約だけをCodexへ渡します。Codexは代表的な機能の確認と追加通信の収集を担当し、結果をScopePilotが候補へ変換します。リンク巡回に加えて、利用可能な`robots.txt`とサイトマップから同一OriginのURLを補完的に発見します。未確認HTMLを静的と断定せず、フォーム付き画面、認証・認可境界、API、エラー応答などを残します。選定は一次判定であり、脆弱性や安全性の判定ではありません。
 
 選定基準の出典はWebAppPentestGuidelines、OWASP Top 10:2025、ASVS、WSTG、AISVS、Cloud Native Application Security Top 10、デジタル庁DS-221です。AISVSはAI機能、Cloud Native Top 10は該当構成、DS-221は適用対象の案件に限って参考にします。各出典へのリンクと適用条件は探索パッケージの `selection-guidance.md` に記載します。
 

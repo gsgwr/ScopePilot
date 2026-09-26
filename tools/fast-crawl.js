@@ -18,6 +18,7 @@ const visited = new Set();
 const skipped = [];
 const pages = [];
 const requests = new Map();
+const sitemapUrls = new Set();
 let failureCode = null;
 const forbiddenPattern = /(?:logout|log-out|signout|sign-out|delete|remove|destroy|unsubscribe|checkout|purchase|payment|approve|reject|cancel|cart\/add|action=(?:delete|remove|logout|purchase|approve|reject))/i;
 const nonPageExtension = /\.(?:avif|bmp|css|csv|docx?|eot|gif|ico|jpe?g|js|json|mp3|mp4|mpeg|pdf|png|pptx?|svg|tar|tiff?|ttf|txt|wav|webm|webp|woff2?|xlsx?|xml|zip)(?:$|\?)/i;
@@ -52,6 +53,7 @@ try {
     }
   });
 
+  await discoverSitemaps(context);
   const page = await context.newPage();
   while (pageQueue.length && pages.length < maxPages && requests.size < maxRequests && Date.now() < deadline) {
     const url = pageQueue.shift();
@@ -106,6 +108,7 @@ try {
   fs.writeFileSync(path.join(runDirectory, 'fast-crawl-summary.json'), JSON.stringify({
     status: failureCode ? 'failed' : 'completed', failureCode, startedAt, finishedAt: new Date(), visitedPageCount: pages.length,
     discoveredUrlCount: queued.size, observedRequestCount: requests.size,
+    sitemapUrlCount: sitemapUrls.size,
     remainingQueueCount: pageQueue.length, skippedCount: skipped.length,
     stoppedBy: Date.now() >= deadline ? 'time-limit' : pages.length >= maxPages ? 'page-limit' : requests.size >= maxRequests ? 'request-limit' : 'queue-empty',
     pages, skipped: skipped.slice(0, 1000)
@@ -135,6 +138,41 @@ function isSafePageUrl(value) {
 }
 function isProxyFailure(message) {
   return /ERR_PROXY_CONNECTION_FAILED|ERR_TUNNEL_CONNECTION_FAILED|proxy\s+connection\s+(?:failed|refused)|ECONNREFUSED/i.test(message);
+}
+
+async function discoverSitemaps(context) {
+  const origins = [...allowed];
+  for (const origin of origins) {
+    const candidates = new Set([`${origin}/robots.txt`, `${origin}/sitemap.xml`]);
+    let robotsText = '';
+    try {
+      const response = await context.request.get(`${origin}/robots.txt`, { timeout: 10_000, failOnStatusCode: false });
+      if (response.ok()) robotsText = await response.text();
+    } catch { /* robots.txt is optional */ }
+    for (const line of robotsText.split(/\r?\n/)) {
+      const match = /^\s*sitemap\s*:\s*(\S+)/i.exec(line);
+      if (match) candidates.add(match[1]);
+    }
+    for (const sitemap of candidates) {
+      let sitemapResponse;
+      try {
+        sitemapResponse = await context.request.get(sitemap, { timeout: 10_000, failOnStatusCode: false });
+        if (!sitemapResponse.ok()) continue;
+      } catch { continue; }
+      const body = await sitemapResponse.text().catch(() => '');
+      for (const match of body.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)) {
+        let candidate;
+        try { candidate = normalizeUrl(match[1].trim()); } catch { continue; }
+        if (!allowed.has(new URL(candidate).origin) || !isSafePageUrl(candidate)) continue;
+        sitemapUrls.add(candidate);
+        if (!queued.has(candidate) && !attempted.has(candidate) && !visited.has(candidate)) {
+          queued.add(candidate);
+          pageQueue.push(candidate);
+        }
+      }
+    }
+  }
+  if (sitemapUrls.size > 0) process.stdout.write(`SITEMAP URLS ${sitemapUrls.size} QUEUED ${pageQueue.length}\n`);
 }
 
 main().catch(error => {
