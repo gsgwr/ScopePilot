@@ -55,9 +55,14 @@ ScopePilotは、受託Web診断の事前探索と診断対象リクエストの�
 
 ```powershell
 $env:DOTNET_CLI_HOME = "$PWD\.dotnet-home"
-dotnet build
+Push-Location tools/playwright-runtime
+npm ci
+Pop-Location
+dotnet build ScopePilot.csproj
 dotnet run
 ```
+
+GitHub Actionsでも同じ手順でPlaywright MCPランタイムを復元し、win-x64の自己完結型配布物を成果物として生成します。
 
 ## MCPの前提
 
