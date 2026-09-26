@@ -155,11 +155,20 @@
             <TabItem Header="4  診断対象候補">
                 <Grid Margin="20">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBlock Text="{Binding CandidateSummary}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{Binding CandidateSummary}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/><TextBlock Text="{Binding CandidateFilterSummary}" Foreground="{DynamicResource TextSecondary}" Margin="14,0,0,0" VerticalAlignment="Center"/></StackPanel>
                         <Button Grid.Column="1" Content="採用・除外の記録を解除" Command="{Binding ResetCandidateDecisionsCommand}" Margin="12,0,0,0" ToolTip="この案件で保存した採用・除外の判断をすべて解除し、現在の観測通信から候補を再判定します。"/>
+                        <WrapPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,6,0,0">
+                            <TextBlock Text="候補検索" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Text="{Binding CandidateSearch, UpdateSourceTrigger=PropertyChanged}" Width="300" Margin="0,3,8,4" ToolTip="URL、分類、理由、ロールから候補を検索"/>
+                            <Button Content="すべて" Command="{Binding ShowAllCandidatesCommand}" MinWidth="72" Padding="10,6"/>
+                            <Button Content="採用のみ" Command="{Binding ShowSelectedCandidatesCommand}" MinWidth="80" Padding="10,6"/>
+                            <Button Content="除外のみ" Command="{Binding ShowExcludedCandidatesCommand}" MinWidth="80" Padding="10,6"/>
+                            <Button Content="表示中を採用" Command="{Binding AdoptVisibleCandidatesCommand}" MinWidth="105" Padding="10,6"/>
+                            <Button Content="表示中を除外" Command="{Binding ExcludeVisibleCandidatesCommand}" MinWidth="105" Padding="10,6"/>
+                        </WrapPanel>
                     </Grid>
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding Project.Candidates}" SelectedItem="{Binding SelectedCandidate}" AutoGenerateColumns="False" CanUserAddRows="False" GridLinesVisibility="Horizontal" CellEditEnding="CandidateGrid_CellEditEnding"><DataGrid.Columns>
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding FilteredCandidates}" SelectedItem="{Binding SelectedCandidate}" AutoGenerateColumns="False" CanUserAddRows="False" GridLinesVisibility="Horizontal" CellEditEnding="CandidateGrid_CellEditEnding"><DataGrid.Columns>
                         <DataGridCheckBoxColumn Header="採用" Binding="{Binding Selected}" Width="60"/><DataGridTextColumn Header="判定" Binding="{Binding Decision}" Width="85" IsReadOnly="True"/><DataGridTextColumn Header="確信度" Binding="{Binding Confidence}" Width="70" IsReadOnly="True"/><DataGridTextColumn Header="分類" Binding="{Binding Category}" Width="130" IsReadOnly="True"/><DataGridTextColumn Header="Method" Binding="{Binding Representative.Method}" Width="75" IsReadOnly="True"/>
                         <DataGridTemplateColumn Header="代表URL" Width="2*" IsReadOnly="True"><DataGridTemplateColumn.CellTemplate><DataTemplate>
                             <Button Content="{Binding Representative.Url}" Tag="{Binding Representative.Url}" Click="CandidateUrl_Click" HorizontalAlignment="Left" Padding="2,0" Margin="0" MinWidth="0" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Link}" Cursor="Hand" ToolTip="既定のブラウザで開く"/>

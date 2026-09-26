@@ -30,6 +30,8 @@ public sealed class MainViewModel : ObservableObject
     private DiagnosticFinding? _selectedFinding;
     private SavedProjectInfo? _selectedSavedProject;
     private ExplorationRunSummary? _selectedRun;
+    private string _candidateSearch = string.Empty;
+    private string _candidateReviewFilter = "すべて";
 
     public MainViewModel()
     {
@@ -46,6 +48,11 @@ public sealed class MainViewModel : ObservableObject
         ResumeExplorationCommand = new RelayCommand(ResumeExploration, () => IsRunning && Project.Status == ProjectStatus.WaitingForHuman);
         GenerateCandidatesCommand = new RelayCommand(GenerateCandidates);
         ResetCandidateDecisionsCommand = new AsyncRelayCommand(ResetCandidateDecisionsAsync, () => !IsRunning);
+        ShowAllCandidatesCommand = new RelayCommand(() => SetCandidateReviewFilter("すべて"));
+        ShowSelectedCandidatesCommand = new RelayCommand(() => SetCandidateReviewFilter("採用"));
+        ShowExcludedCandidatesCommand = new RelayCommand(() => SetCandidateReviewFilter("除外"));
+        AdoptVisibleCandidatesCommand = new AsyncRelayCommand(() => SetVisibleCandidateDecisionAsync(true), () => !IsRunning && FilteredCandidates.Count > 0);
+        ExcludeVisibleCandidatesCommand = new AsyncRelayCommand(() => SetVisibleCandidateDecisionAsync(false), () => !IsRunning && FilteredCandidates.Count > 0);
         ExportBurpScopeCommand = new AsyncRelayCommand(ExportBurpScopeAsync, () => !IsRunning);
         ExportFindingsCommand = new AsyncRelayCommand(ExportFindingsAsync, () => !IsRunning);
     }
@@ -55,6 +62,7 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<SavedProjectInfo> SavedProjects { get; } = [];
     public ObservableCollection<ExplorationRunSummary> RunHistory { get; } = [];
     public ObservableCollection<string> RoleOptions { get; } = [];
+    public ObservableCollection<DiagnosticCandidate> FilteredCandidates { get; } = [];
     public AsyncRelayCommand SaveCommand { get; }
     public AsyncRelayCommand NewProjectCommand { get; }
     public AsyncRelayCommand LoadProjectCommand { get; }
@@ -68,6 +76,11 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand ResumeExplorationCommand { get; }
     public RelayCommand GenerateCandidatesCommand { get; }
     public AsyncRelayCommand ResetCandidateDecisionsCommand { get; }
+    public RelayCommand ShowAllCandidatesCommand { get; }
+    public RelayCommand ShowSelectedCandidatesCommand { get; }
+    public RelayCommand ShowExcludedCandidatesCommand { get; }
+    public AsyncRelayCommand AdoptVisibleCandidatesCommand { get; }
+    public AsyncRelayCommand ExcludeVisibleCandidatesCommand { get; }
     public AsyncRelayCommand ExportBurpScopeCommand { get; }
     public AsyncRelayCommand ExportFindingsCommand { get; }
     public bool IsRunning
@@ -83,6 +96,8 @@ public sealed class MainViewModel : ObservableObject
             StopExplorationCommand.RaiseCanExecuteChanged();
             ResumeExplorationCommand.RaiseCanExecuteChanged();
             ResetCandidateDecisionsCommand.RaiseCanExecuteChanged();
+            AdoptVisibleCandidatesCommand.RaiseCanExecuteChanged();
+            ExcludeVisibleCandidatesCommand.RaiseCanExecuteChanged();
             ExportBurpScopeCommand.RaiseCanExecuteChanged();
             ExportFindingsCommand.RaiseCanExecuteChanged();
         }
@@ -112,6 +127,13 @@ public sealed class MainViewModel : ObservableObject
     public string SummaryText => $"{Project.Name}  |  観測 {Project.Requests.Count:N0}件  |  候補 {Project.Candidates.Count(x => x.Selected):N0}件";
     public string RequestSummary => $"観測した通信: {Project.Requests.Count:N0}件";
     public string CandidateSummary => $"代表化した候補: {Project.Candidates.Count:N0}件（採用 {Project.Candidates.Count(x => x.Selected):N0}件／除外キャッシュ {Project.DeferredCandidatePatterns.Count:N0}件）";
+    public string CandidateFilterSummary => $"表示 {FilteredCandidates.Count:N0}件 / 全{Project.Candidates.Count:N0}件（{CandidateReviewFilter}）";
+    public string CandidateSearch
+    {
+        get => _candidateSearch;
+        set { if (SetProperty(ref _candidateSearch, value)) RefreshFilteredCandidates(); }
+    }
+    public string CandidateReviewFilter { get => _candidateReviewFilter; private set => SetProperty(ref _candidateReviewFilter, value); }
     public string FindingSummary => $"診断所見: {Project.Findings.Count:N0}件";
     public string RunHistorySummary => $"探索実行履歴: {RunHistory.Count:N0}件";
     public string ConsoleText => string.Join(Environment.NewLine, Logs);
@@ -190,6 +212,49 @@ public sealed class MainViewModel : ObservableObject
         Log(candidate.Selected
             ? $"候補を採用キャッシュへ保存しました: {candidate.Pattern}"
             : $"候補を除外キャッシュへ保存しました: {candidate.Pattern}");
+        RefreshFilteredCandidates();
+    }
+
+    private void SetCandidateReviewFilter(string filter)
+    {
+        CandidateReviewFilter = filter;
+        RefreshFilteredCandidates();
+    }
+
+    private void RefreshFilteredCandidates()
+    {
+        var query = Project.Candidates.AsEnumerable();
+        query = CandidateReviewFilter switch
+        {
+            "採用" => query.Where(x => x.Selected),
+            "除外" => query.Where(x => !x.Selected),
+            _ => query
+        };
+        var search = CandidateSearch.Trim();
+        if (search.Length > 0)
+            query = query.Where(x => new[] { x.Pattern, x.Representative.Url, x.Category, x.Reason, x.DiagnosticCaution, x.Representative.Role }
+                .Any(value => value?.Contains(search, StringComparison.OrdinalIgnoreCase) == true));
+        FilteredCandidates.Clear();
+        foreach (var candidate in query) FilteredCandidates.Add(candidate);
+        if (SelectedCandidate is null || !FilteredCandidates.Contains(SelectedCandidate))
+            SelectedCandidate = FilteredCandidates.FirstOrDefault();
+        RaisePropertyChanged(nameof(CandidateFilterSummary));
+        AdoptVisibleCandidatesCommand.RaiseCanExecuteChanged();
+        ExcludeVisibleCandidatesCommand.RaiseCanExecuteChanged();
+    }
+
+    private async Task SetVisibleCandidateDecisionAsync(bool selected)
+    {
+        var targets = FilteredCandidates.ToArray();
+        foreach (var candidate in targets)
+        {
+            candidate.Selected = selected;
+            UpdateCandidateDecisionCache(candidate);
+        }
+        await _store.SaveAsync(Project);
+        Log($"表示中の候補{targets.Length:N0}件を{(selected ? "一括採用" : "一括除外")}しました。");
+        RefreshFilteredCandidates();
+        RefreshSummary();
     }
 
     public async Task ApplyGuidelineSelectionAsync()
@@ -222,6 +287,8 @@ public sealed class MainViewModel : ObservableObject
             await _store.SaveAsync(Project);
             Project = new EngagementProject();
             UpdateRoleOptions();
+            CandidateSearch = string.Empty;
+            SetCandidateReviewFilter("すべて");
             _currentRunDirectory = null;
             InterventionText = string.Empty;
             SelectedCandidate = null;
@@ -253,6 +320,8 @@ public sealed class MainViewModel : ObservableObject
             PrepareProject(loaded);
             Project = loaded;
             UpdateRoleOptions();
+            CandidateSearch = string.Empty;
+            SetCandidateReviewFilter("すべて");
             _currentRunDirectory = null;
             InterventionText = string.Empty;
             SelectedCandidate = null;
@@ -655,7 +724,7 @@ public sealed class MainViewModel : ObservableObject
             candidate.Decision = candidate.Selected ? "候補" : explicitlyDeferred ? "除外キャッシュ" : "除外候補";
             Project.Candidates.Add(candidate);
         }
-        SelectedCandidate = Project.Candidates.FirstOrDefault();
+        RefreshFilteredCandidates();
         Project.Status = candidates.Count > 0 ? ProjectStatus.ReviewReady : ProjectStatus.Ready;
         Log($"{Project.Requests.Count:N0}件から{candidates.Count:N0}個の代表パターンを生成しました。"); RefreshSummary();
     }
