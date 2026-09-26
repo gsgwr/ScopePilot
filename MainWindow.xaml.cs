@@ -58,8 +58,9 @@ public partial class MainWindow : Window
 
     private void CandidateGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
     {
-        if (e.EditAction == DataGridEditAction.Commit && e.Column.Header?.ToString() == "採用")
-            Dispatcher.BeginInvoke(new Action(() => _ = _viewModel.SaveCandidateDecisionsAsync()));
+        if (e.EditAction == DataGridEditAction.Commit && e.Column.Header?.ToString() == "採用" &&
+            e.Row.Item is ScopePilot.Domain.DiagnosticCandidate candidate)
+            Dispatcher.BeginInvoke(new Action(() => _ = _viewModel.SaveCandidateDecisionAsync(candidate)));
     }
 
     private void GuidelineCheckBox_Click(object sender, RoutedEventArgs e) =>

@@ -86,7 +86,11 @@ public sealed class MainViewModel : ObservableObject
             Project = await _store.LoadLatestAsync() ?? new EngagementProject();
             Project.Guidelines ??= new GuidelineSelectionOptions();
             Project.Findings ??= [];
+            Project.ExplicitlyReviewedCandidatePatterns ??= [];
+            var removedStartUrlCache = RemoveStartUrlFromDeferredCache();
             Log(Project.CreatedAt == Project.UpdatedAt ? "新規案件を開始しました。" : "直近の案件を復元しました。");
+            if (removedStartUrlCache)
+                Log("開始URLに誤って登録されていた除外キャッシュを削除しました。");
             if (Project.Requests.Count > 0)
             {
                 GenerateCandidates();
@@ -129,7 +133,6 @@ public sealed class MainViewModel : ObservableObject
     {
         try
         {
-            SyncCandidateDecisionCache();
             var valid = IsConfigurationValid();
             if (!valid) Project.Status = ProjectStatus.Draft;
             else if (Project.Status is ProjectStatus.Draft or ProjectStatus.Failed) Project.Status = ProjectStatus.Ready;
@@ -138,7 +141,14 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception ex) { Log($"保存失敗: {ex.Message}"); }
     }
 
-    public Task SaveCandidateDecisionsAsync() => SaveAsync();
+    public async Task SaveCandidateDecisionAsync(DiagnosticCandidate candidate)
+    {
+        UpdateCandidateDecisionCache(candidate);
+        await SaveAsync();
+        Log(candidate.Selected
+            ? $"候補を採用キャッシュへ保存しました: {candidate.Pattern}"
+            : $"候補を除外キャッシュへ保存しました: {candidate.Pattern}");
+    }
 
     public async Task ApplyGuidelineSelectionAsync()
     {
@@ -152,7 +162,6 @@ public sealed class MainViewModel : ObservableObject
     {
         try
         {
-            SyncCandidateDecisionCache();
             await _store.SaveAsync(Project);
             Project = new EngagementProject();
             _currentRunDirectory = null;
@@ -338,6 +347,8 @@ public sealed class MainViewModel : ObservableObject
         { Log("開始URLをhttpまたはhttpsの完全なURLで入力してください。"); return null; }
         if (string.IsNullOrWhiteSpace(Project.AllowedOrigins))
         { Log("診断を許可されたOriginを1件以上入力してください。"); return null; }
+        if (RemoveStartUrlFromDeferredCache())
+            Log("開始URLの除外キャッシュを解除し、AI確認対象へ戻しました。");
         await SaveAsync();
         return await _packageBuilder.BuildAsync(Project);
     }
@@ -432,7 +443,6 @@ public sealed class MainViewModel : ObservableObject
     private void GenerateCandidates()
     {
         Project.Status = ProjectStatus.Organizing;
-        SyncCandidateDecisionCache();
         var previousDecisions = Project.Candidates
             .GroupBy(x => NormalizeCandidatePattern(x.Pattern), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.Last().Selected, StringComparer.OrdinalIgnoreCase);
@@ -445,13 +455,13 @@ public sealed class MainViewModel : ObservableObject
         foreach (var candidate in candidates)
         {
             var key = NormalizeCandidatePattern(candidate.Pattern);
+            var explicitlyDeferred = deferred.Contains(key);
             if (previousDecisions.TryGetValue(key, out var previousSelected)) candidate.Selected = previousSelected;
             else if (adopted.Contains(key)) candidate.Selected = true;
-            else if (deferred.Contains(key)) candidate.Selected = false;
-            candidate.Decision = candidate.Selected ? "候補" : "除外キャッシュ";
+            else if (explicitlyDeferred) candidate.Selected = false;
+            candidate.Decision = candidate.Selected ? "候補" : explicitlyDeferred ? "除外キャッシュ" : "除外候補";
             Project.Candidates.Add(candidate);
         }
-        SyncCandidateDecisionCache();
         SelectedCandidate = Project.Candidates.FirstOrDefault();
         Project.Status = candidates.Count > 0 ? ProjectStatus.ReviewReady : ProjectStatus.Ready;
         Log($"{Project.Requests.Count:N0}件から{candidates.Count:N0}個の代表パターンを生成しました。"); RefreshSummary();
@@ -461,7 +471,6 @@ public sealed class MainViewModel : ObservableObject
     {
         try
         {
-            SyncCandidateDecisionCache();
             var result = await _burpScopeExport.ExportAsync(Project);
             await _store.SaveAsync(Project);
             Log($"Burp Scope出力を生成しました: 採用{result.SelectedCount:N0}件 / {result.Directory}");
@@ -482,22 +491,37 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception ex) { Log($"診断所見レポートの出力に失敗しました: {ex.Message}"); }
     }
 
-    private void SyncCandidateDecisionCache()
+    private void UpdateCandidateDecisionCache(DiagnosticCandidate candidate)
     {
         var adopted = Project.AdoptedCandidatePatterns.Select(NormalizeCandidatePattern)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var deferred = Project.DeferredCandidatePatterns.Select(NormalizeCandidatePattern)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var candidate in Project.Candidates)
-        {
-            var key = NormalizeCandidatePattern(candidate.Pattern);
-            if (candidate.Selected) { adopted.Add(key); deferred.Remove(key); }
-            else { deferred.Add(key); adopted.Remove(key); }
-        }
+        var key = NormalizeCandidatePattern(candidate.Pattern);
+        if (!Project.ExplicitlyReviewedCandidatePatterns.Select(NormalizeCandidatePattern).Contains(key, StringComparer.OrdinalIgnoreCase))
+            Project.ExplicitlyReviewedCandidatePatterns.Add(key);
+        if (candidate.Selected) { adopted.Add(key); deferred.Remove(key); candidate.Decision = "候補"; }
+        else { deferred.Add(key); adopted.Remove(key); candidate.Decision = "除外キャッシュ"; }
         Project.AdoptedCandidatePatterns.Clear();
         foreach (var item in adopted.Order(StringComparer.OrdinalIgnoreCase)) Project.AdoptedCandidatePatterns.Add(item);
         Project.DeferredCandidatePatterns.Clear();
         foreach (var item in deferred.Order(StringComparer.OrdinalIgnoreCase)) Project.DeferredCandidatePatterns.Add(item);
+    }
+
+    private bool RemoveStartUrlFromDeferredCache()
+    {
+        if (!Uri.TryCreate(Project.StartUrl, UriKind.Absolute, out _)) return false;
+        var startPattern = NormalizeCandidatePattern($"GET {Project.StartUrl}");
+        if (Project.ExplicitlyReviewedCandidatePatterns.Select(NormalizeCandidatePattern)
+            .Contains(startPattern, StringComparer.OrdinalIgnoreCase)) return false;
+        var removed = false;
+        for (var index = Project.DeferredCandidatePatterns.Count - 1; index >= 0; index--)
+        {
+            if (!NormalizeCandidatePattern(Project.DeferredCandidatePatterns[index]).Equals(startPattern, StringComparison.OrdinalIgnoreCase)) continue;
+            Project.DeferredCandidatePatterns.RemoveAt(index);
+            removed = true;
+        }
+        return removed;
     }
 
     private static string NormalizeCandidatePattern(string value)

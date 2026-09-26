@@ -37,6 +37,7 @@ public sealed class EngagementProject
     public ObservableCollection<DiagnosticFinding> Findings { get; set; } = [];
     public ObservableCollection<string> AdoptedCandidatePatterns { get; set; } = [];
     public ObservableCollection<string> DeferredCandidatePatterns { get; set; } = [];
+    public ObservableCollection<string> ExplicitlyReviewedCandidatePatterns { get; set; } = [];
 }
 
 public sealed class GuidelineSelectionOptions
@@ -79,7 +80,6 @@ public sealed class DiagnosticCandidate : INotifyPropertyChanged
             if (_selected == value) return;
             _selected = value;
             OnPropertyChanged(nameof(Selected));
-            Decision = value ? "候補" : "除外キャッシュ";
         }
     }
     public string Confidence { get; set; } = "中";
