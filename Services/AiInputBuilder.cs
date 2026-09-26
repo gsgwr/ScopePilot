@@ -25,7 +25,7 @@ public sealed class AiInputBuilder
         var requests = File.Exists(requestFile)
             ? await _importer.ImportAsync(requestFile)
             : Array.Empty<ObservedRequest>();
-        var (adoptedPatterns, deferredPatterns, guidelines) = await ReadRunSettingsAsync(Path.Combine(runDirectory, "engagement.json"));
+        var (adoptedPatterns, deferredPatterns, guidelines, startUrl) = await ReadRunSettingsAsync(Path.Combine(runDirectory, "engagement.json"));
 
         var selectedRequests = new List<(ObservedRequest Request, SelectionAssessment Assessment, bool PreviouslyAdopted)>();
         var staticExcluded = 0;
@@ -40,12 +40,21 @@ public sealed class AiInputBuilder
                 continue;
             }
             var assessment = GuidelineSelectionPolicy.Evaluate(request, guidelines);
-            if (!assessment.Selected && !previouslyAdopted) staticExcluded++;
+            var isStartUrl = IsSameRequestUrl(request.Url, startUrl);
+            if (!assessment.Selected && !previouslyAdopted && !isStartUrl) staticExcluded++;
             else selectedRequests.Add((request, assessment with
             {
                 Selected = true,
-                Reason = previouslyAdopted ? "前回、診断対象として採用されたパターンです。 " + assessment.Reason : assessment.Reason,
-                Signals = previouslyAdopted ? assessment.Signals.Append("前回採用済み").ToArray() : assessment.Signals
+                Reason = previouslyAdopted
+                    ? "前回、診断対象として採用されたパターンです。 " + assessment.Reason
+                    : isStartUrl
+                        ? "案件の開始URLのため、静的画面候補でも初回のAI確認を省略しません。 " + assessment.Reason
+                        : assessment.Reason,
+                Signals = previouslyAdopted
+                    ? assessment.Signals.Append("前回採用済み").ToArray()
+                    : isStartUrl
+                        ? assessment.Signals.Append("案件の開始URL").ToArray()
+                        : assessment.Signals
             }, previouslyAdopted));
         }
 
@@ -202,9 +211,9 @@ public sealed class AiInputBuilder
         return UrlPatternNormalizer.NormalizeForSelection(value);
     }
 
-    private static async Task<(HashSet<string> Adopted, HashSet<string> Deferred, GuidelineSelectionOptions Guidelines)> ReadRunSettingsAsync(string path)
+    private static async Task<(HashSet<string> Adopted, HashSet<string> Deferred, GuidelineSelectionOptions Guidelines, string StartUrl)> ReadRunSettingsAsync(string path)
     {
-        if (!File.Exists(path)) return (new(StringComparer.OrdinalIgnoreCase), new(StringComparer.OrdinalIgnoreCase), new GuidelineSelectionOptions());
+        if (!File.Exists(path)) return (new(StringComparer.OrdinalIgnoreCase), new(StringComparer.OrdinalIgnoreCase), new GuidelineSelectionOptions(), string.Empty);
         try
         {
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path));
@@ -212,9 +221,20 @@ public sealed class AiInputBuilder
             var guidelines = root.TryGetProperty("guidelines", out var guidelineElement)
                 ? JsonSerializer.Deserialize<GuidelineSelectionOptions>(guidelineElement.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new GuidelineSelectionOptions()
                 : new GuidelineSelectionOptions();
-            return (ReadPatterns(root, "adoptedCandidatePatterns"), ReadPatterns(root, "deferredCandidatePatterns"), guidelines);
+            var startUrl = root.TryGetProperty("startUrl", out var startUrlElement) && startUrlElement.ValueKind == JsonValueKind.String
+                ? startUrlElement.GetString() ?? string.Empty
+                : string.Empty;
+            return (ReadPatterns(root, "adoptedCandidatePatterns"), ReadPatterns(root, "deferredCandidatePatterns"), guidelines, startUrl);
         }
-        catch (JsonException) { return (new(StringComparer.OrdinalIgnoreCase), new(StringComparer.OrdinalIgnoreCase), new GuidelineSelectionOptions()); }
+        catch (JsonException) { return (new(StringComparer.OrdinalIgnoreCase), new(StringComparer.OrdinalIgnoreCase), new GuidelineSelectionOptions(), string.Empty); }
+    }
+
+    private static bool IsSameRequestUrl(string requestUrl, string startUrl)
+    {
+        if (!Uri.TryCreate(requestUrl, UriKind.Absolute, out var request) || !Uri.TryCreate(startUrl, UriKind.Absolute, out var start)) return false;
+        request = new UriBuilder(request) { Fragment = string.Empty }.Uri;
+        start = new UriBuilder(start) { Fragment = string.Empty }.Uri;
+        return Uri.Compare(request, start, UriComponents.HttpRequestUrl, UriFormat.UriEscaped, StringComparison.OrdinalIgnoreCase) == 0;
     }
 
     private static HashSet<string> ReadPatterns(JsonElement root, string name)

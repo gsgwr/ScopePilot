@@ -238,7 +238,7 @@ public sealed class MainViewModel : ObservableObject
             {
                 Log("高速GETクロールが完了しました。アプリ側でAI対象を分類します。");
                 var aiInput = await _aiInputBuilder.BuildAsync(path);
-                Log($"AI事前分類: 通信{aiInput.TotalRequests:N0}件中、静的アセット等{aiInput.StaticExcluded:N0}件と除外キャッシュ{aiInput.DeferredExcluded:N0}件を対象外とし、採用済み・新規のリクエスト{aiInput.RequestPatternCount:N0}パターン・フォーム{aiInput.FormPatternCount:N0}パターンに集約しました。");
+                Log($"AI事前分類: 通信{aiInput.TotalRequests:N0}件中、静的アセット・静的画面候補{aiInput.StaticExcluded:N0}件と除外キャッシュ{aiInput.DeferredExcluded:N0}件を対象外とし、採用済み・新規のリクエスト{aiInput.RequestPatternCount:N0}パターン・フォーム{aiInput.FormPatternCount:N0}パターンに集約しました。");
                 if (aiInput.TruncatedPatternCount > 0)
                     Log($"AI入力の上限により{aiInput.TruncatedPatternCount:N0}パターンを省略しました。全件の証跡は実行フォルダーに保持しています。");
                 if (!aiInput.RequiresAi)
