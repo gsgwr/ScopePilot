@@ -73,4 +73,25 @@ public partial class MainWindow : Window
 
     private void RolesTextBox_TextChanged(object sender, TextChangedEventArgs e) =>
         Dispatcher.BeginInvoke(new Action(_viewModel.UpdateRoleOptions));
+
+    private async void DeleteSelectedRun_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedRun is null)
+        {
+            MessageBox.Show(this, "実行履歴タブで削除する探索実行を選択してください。", "ScopePilot", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var answer = MessageBox.Show(this,
+            $"{_viewModel.SelectedRun.StartedAtDisplay} の探索実行フォルダーを削除します。\n案件へ取り込み済みの通信は残ります。続行しますか？",
+            "探索実行データの削除", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (answer == MessageBoxResult.Yes) await _viewModel.DeleteSelectedRunAsync();
+    }
+
+    private async void DeleteGeneratedArtifacts_Click(object sender, RoutedEventArgs e)
+    {
+        var answer = MessageBox.Show(this,
+            "現在の案件で生成したBurp出力とレポートを削除します。案件、観測通信、探索実行履歴は残ります。続行しますか？",
+            "生成物の削除", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (answer == MessageBoxResult.Yes) await _viewModel.DeleteGeneratedArtifactsAsync();
+    }
 }

@@ -23,6 +23,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly CodexFindingImporter _findingImporter = new();
     private readonly FindingReportService _findingReport = new();
     private readonly RunHistoryService _runHistoryService = new();
+    private readonly DataManagementService _dataManagement = new();
     private EngagementProject _project = new();
     private CancellationTokenSource? _runCancellation;
     private string? _currentRunDirectory;
@@ -41,6 +42,8 @@ public sealed class MainViewModel : ObservableObject
     private string? _selectedBurpScopeRegex;
     private string _burpHandoffStatus = "Burp Scope出力を生成すると、登録用の正規表現をここで案内します。";
     private int _nextBurpRegexIndex;
+    private string _dataSummaryText = "保存データを確認しています。";
+    private string? _lastBackupPath;
 
     public MainViewModel()
     {
@@ -66,6 +69,9 @@ public sealed class MainViewModel : ObservableObject
         OpenBurpExportFolderCommand = new RelayCommand(OpenBurpExportFolder, () => !string.IsNullOrWhiteSpace(LastBurpExportDirectory));
         CopyNextBurpRegexCommand = new RelayCommand(CopyNextBurpRegex, () => BurpScopeRegexes.Count > 0);
         ExportFindingsCommand = new AsyncRelayCommand(ExportFindingsAsync, () => !IsRunning);
+        RefreshDataSummaryCommand = new AsyncRelayCommand(RefreshDataSummaryAsync);
+        BackupProjectCommand = new AsyncRelayCommand(BackupProjectAsync, () => !IsRunning);
+        OpenDataFolderCommand = new RelayCommand(() => OpenRunPath(_dataManagement.RootDirectory, "データフォルダー"));
     }
 
     public EngagementProject Project { get => _project; private set { if (SetProperty(ref _project, value)) RefreshSummary(); } }
@@ -97,6 +103,9 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand OpenBurpExportFolderCommand { get; }
     public RelayCommand CopyNextBurpRegexCommand { get; }
     public AsyncRelayCommand ExportFindingsCommand { get; }
+    public AsyncRelayCommand RefreshDataSummaryCommand { get; }
+    public AsyncRelayCommand BackupProjectCommand { get; }
+    public RelayCommand OpenDataFolderCommand { get; }
     public bool IsRunning
     {
         get => _isRunning;
@@ -114,6 +123,7 @@ public sealed class MainViewModel : ObservableObject
             ExcludeVisibleCandidatesCommand.RaiseCanExecuteChanged();
             ExportBurpScopeCommand.RaiseCanExecuteChanged();
             ExportFindingsCommand.RaiseCanExecuteChanged();
+            BackupProjectCommand.RaiseCanExecuteChanged();
         }
     }
     public string InterventionText { get => _interventionText; private set => SetProperty(ref _interventionText, value); }
@@ -154,6 +164,8 @@ public sealed class MainViewModel : ObservableObject
     public string? LastBurpExportDirectory { get => _lastBurpExportDirectory; private set { if (SetProperty(ref _lastBurpExportDirectory, value)) OpenBurpExportFolderCommand.RaiseCanExecuteChanged(); } }
     public string? SelectedBurpScopeRegex { get => _selectedBurpScopeRegex; set => SetProperty(ref _selectedBurpScopeRegex, value); }
     public string BurpHandoffStatus { get => _burpHandoffStatus; private set => SetProperty(ref _burpHandoffStatus, value); }
+    public string DataSummaryText { get => _dataSummaryText; private set => SetProperty(ref _dataSummaryText, value); }
+    public string? LastBackupPath { get => _lastBackupPath; private set => SetProperty(ref _lastBackupPath, value); }
     public string FindingSummary => $"診断所見: {Project.Findings.Count:N0}件";
     public string RunHistorySummary => $"探索実行履歴: {RunHistory.Count:N0}件";
     public string ConsoleText => string.Join(Environment.NewLine, Logs);
@@ -183,6 +195,7 @@ public sealed class MainViewModel : ObservableObject
             }
             await RefreshSavedProjectsAsync(Project.Id);
             await RefreshRunHistoryAsync();
+            await RefreshDataSummaryAsync();
         }
         catch (Exception ex) { Log($"案件の復元に失敗しました: {ex.Message}"); }
     }
@@ -325,6 +338,7 @@ public sealed class MainViewModel : ObservableObject
             await _store.SaveAsync(Project);
             await RefreshSavedProjectsAsync(Project.Id);
             await RefreshRunHistoryAsync();
+            await RefreshDataSummaryAsync();
             Log("新しい案件を開始しました。観測通信、診断候補、実行ログを初期化しました。");
             RefreshSummary();
         }
@@ -360,6 +374,7 @@ public sealed class MainViewModel : ObservableObject
             await _store.SaveAsync(Project);
             await RefreshSavedProjectsAsync(Project.Id);
             await RefreshRunHistoryAsync();
+            await RefreshDataSummaryAsync();
             Log($"保存済み案件を開きました: {Project.Name}（観測{Project.Requests.Count:N0}件、候補{Project.Candidates.Count:N0}件、所見{Project.Findings.Count:N0}件）");
             RefreshSummary();
         }
@@ -391,6 +406,50 @@ public sealed class MainViewModel : ObservableObject
         foreach (var run in runs) RunHistory.Add(run);
         SelectedRun = RunHistory.FirstOrDefault(x => x.RunId == selectedId) ?? RunHistory.FirstOrDefault();
         RaisePropertyChanged(nameof(RunHistorySummary));
+    }
+
+    private async Task RefreshDataSummaryAsync()
+    {
+        try { DataSummaryText = (await _dataManagement.GetSummaryAsync(Project.Id)).Display; }
+        catch (Exception ex) { DataSummaryText = $"保存データを集計できませんでした: {ex.Message}"; }
+    }
+
+    private async Task BackupProjectAsync()
+    {
+        try
+        {
+            await _store.SaveAsync(Project);
+            LastBackupPath = await _dataManagement.CreateBackupAsync(Project.Id, Project.Name);
+            Log($"案件バックアップを作成しました: {LastBackupPath}");
+            await RefreshDataSummaryAsync();
+        }
+        catch (Exception ex) { Log($"案件バックアップを作成できませんでした: {ex.Message}"); }
+    }
+
+    public async Task DeleteSelectedRunAsync()
+    {
+        if (SelectedRun is null) return;
+        var target = SelectedRun;
+        try
+        {
+            await _dataManagement.DeleteRunAsync(Project.Id, target.Directory);
+            Log($"探索実行データを削除しました: {target.StartedAtDisplay}");
+            await RefreshRunHistoryAsync();
+            await RefreshDataSummaryAsync();
+        }
+        catch (Exception ex) { Log($"探索実行データを削除できませんでした: {ex.Message}"); }
+    }
+
+    public async Task DeleteGeneratedArtifactsAsync()
+    {
+        try
+        {
+            await _dataManagement.DeleteGeneratedArtifactsAsync(Project.Id);
+            ResetBurpHandoff();
+            Log("現在の案件のBurp出力とレポートを削除しました。案件、観測通信、探索実行履歴は保持しています。");
+            await RefreshDataSummaryAsync();
+        }
+        catch (Exception ex) { Log($"生成物を削除できませんでした: {ex.Message}"); }
     }
 
     private void OpenSelectedRunFolder()
@@ -481,6 +540,7 @@ public sealed class MainViewModel : ObservableObject
         var path = await BuildPackageAsync();
         if (path is null) return;
         await RefreshRunHistoryAsync();
+        await RefreshDataSummaryAsync();
         SetRunProgress("準備済み", 100, "探索パッケージを生成しました。AI探索はまだ開始していません。");
         Log($"探索パッケージを生成しました: {path}");
         Log("パッケージは［AI探索を開始］から実行できます。");
@@ -655,6 +715,7 @@ public sealed class MainViewModel : ObservableObject
                 SetRunProgress("手動操作待ち", RunProgress, "ブラウザで必要な操作を完了し、［手動操作完了］を押してください。");
             try { await RefreshRunHistoryAsync(); }
             catch (Exception ex) { Log($"探索実行履歴を更新できませんでした: {ex.Message}"); }
+            await RefreshDataSummaryAsync();
         }
     }
 
@@ -834,6 +895,7 @@ public sealed class MainViewModel : ObservableObject
             CopyNextBurpRegexCommand.RaiseCanExecuteChanged();
             Log($"Burp Scope出力を生成しました: 採用{result.SelectedCount:N0}件 / {result.Directory}");
             Log($"Community EditionではBurpのTarget > Scopeへburp-scope-combined-regex.txtの{result.CombinedRegexes.Length:N0}行を手動登録してください。");
+            await RefreshDataSummaryAsync();
         }
         catch (Exception ex) { Log($"Burp Scope出力に失敗しました: {ex.Message}"); }
     }
@@ -877,6 +939,7 @@ public sealed class MainViewModel : ObservableObject
             Log($"JSON: {result.JsonPath}");
             Log($"HTML: {result.HtmlPath}");
             Log($"候補作業表: {result.CandidateChecklistPath}");
+            await RefreshDataSummaryAsync();
         }
         catch (Exception ex) { Log($"案件レポートの出力に失敗しました: {ex.Message}"); }
     }
