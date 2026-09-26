@@ -1,275 +1,594 @@
-<Window x:Class="ScopePilot.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="ScopePilot" Height="820" Width="1280" MinHeight="680" MinWidth="1000"
-        WindowStartupLocation="CenterScreen" Background="{DynamicResource WindowBackground}" Foreground="{DynamicResource TextPrimary}">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="ScopePilot.MainWindow" Title="ScopePilot" Width="1360" Height="900" MinWidth="960" MinHeight="700" WindowStartupLocation="CenterScreen" Background="{DynamicResource WindowBackground}" Foreground="{DynamicResource TextPrimary}" FontFamily="Segoe UI, Yu Gothic UI" FontSize="14" UseLayoutRounding="True" TextOptions.TextFormattingMode="Display" PreviewKeyDown="Window_PreviewKeyDown">
     <Window.Resources>
-        <SolidColorBrush x:Key="Primary" Color="#165DFF"/>
-        <SolidColorBrush x:Key="WindowBackground" Color="#F4F6F8"/><SolidColorBrush x:Key="Surface" Color="#FFFFFF"/><SolidColorBrush x:Key="ControlBackground" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="TextPrimary" Color="#172033"/><SolidColorBrush x:Key="TextSecondary" Color="#5E6C84"/><SolidColorBrush x:Key="Border" Color="#DDE2E8"/>
-        <SolidColorBrush x:Key="HeaderBackground" Color="#172033"/><SolidColorBrush x:Key="FooterBackground" Color="#FFFFFF"/><SolidColorBrush x:Key="Link" Color="#165DFF"/>
-        <SolidColorBrush x:Key="InfoBackground" Color="#EEF4FF"/><SolidColorBrush x:Key="InfoBorder" Color="#BCD2FF"/><SolidColorBrush x:Key="WarningBackground" Color="#FFF7E6"/><SolidColorBrush x:Key="WarningBorder" Color="#F0B429"/>
-        <SolidColorBrush x:Key="Success" Color="#18794E"/><SolidColorBrush x:Key="ConsoleBackground" Color="#101827"/><SolidColorBrush x:Key="ConsoleForeground" Color="#D9E2F2"/><SolidColorBrush x:Key="Selection" Color="#D7E6FF"/>
-        <SolidColorBrush x:Key="DisabledButtonBackground" Color="#E5E9EF"/><SolidColorBrush x:Key="DisabledButtonForeground" Color="#596579"/>
-        <Style TargetType="Button"><Setter Property="Padding" Value="16,8"/><Setter Property="Margin" Value="4"/><Setter Property="MinWidth" Value="110"/><Setter Property="Background" Value="{DynamicResource ControlBackground}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
-            <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource DisabledButtonBackground}"/><Setter Property="Foreground" Value="{DynamicResource DisabledButtonForeground}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/></Trigger></Style.Triggers>
-        </Style>
-        <Style x:Key="PrimaryActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="{DynamicResource Primary}"/><Setter Property="Foreground" Value="White"/>
-            <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource DisabledButtonBackground}"/><Setter Property="Foreground" Value="{DynamicResource DisabledButtonForeground}"/></Trigger></Style.Triggers>
-        </Style>
-        <Style x:Key="SuccessActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="{DynamicResource Success}"/><Setter Property="Foreground" Value="White"/>
-            <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource DisabledButtonBackground}"/><Setter Property="Foreground" Value="{DynamicResource DisabledButtonForeground}"/></Trigger></Style.Triggers>
-        </Style>
-        <Style TargetType="TextBox"><Setter Property="Padding" Value="8,6"/><Setter Property="Margin" Value="0,3,0,10"/><Setter Property="Background" Value="{DynamicResource ControlBackground}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/><Setter Property="CaretBrush" Value="{DynamicResource TextPrimary}"/></Style>
-        <Style TargetType="ListBox"><Setter Property="Padding" Value="3"/><Setter Property="Margin" Value="0,3,0,10"/><Setter Property="Background" Value="{DynamicResource ControlBackground}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/></Style>
-        <Style TargetType="ListBoxItem"><Setter Property="Padding" Value="8,6"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
-        <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
-            <Setter Property="Background" Value="{DynamicResource Surface}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
-            <Setter Property="IsThreeState" Value="False"/>
-            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
-                <StackPanel Orientation="Horizontal">
-                    <Border x:Name="CheckBoxBorder" Width="16" Height="16" Margin="0,0,7,0" CornerRadius="3" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" VerticalAlignment="Center">
-                        <TextBlock x:Name="CheckMark" Text="✓" FontSize="13" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
-                    </Border>
-                    <ContentPresenter VerticalAlignment="Center" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" ContentStringFormat="{TemplateBinding ContentStringFormat}" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}"/>
-                </StackPanel>
-                <ControlTemplate.Triggers>
-                    <Trigger Property="IsChecked" Value="True">
-                        <Setter TargetName="CheckBoxBorder" Property="Background" Value="{DynamicResource Primary}"/>
-                        <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="{DynamicResource Primary}"/>
-                        <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
-                    </Trigger>
-                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="{DynamicResource Primary}"/></Trigger>
-                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger>
-                </ControlTemplate.Triggers>
-            </ControlTemplate></Setter.Value></Setter>
-        </Style>
-        <Style TargetType="GroupBox"><Setter Property="Padding" Value="12"/><Setter Property="Margin" Value="0,0,12,12"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/></Style>
-        <Style TargetType="TabControl"><Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/></Style>
-        <Style TargetType="TabItem">
-            <Setter Property="Background" Value="{DynamicResource ControlBackground}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
-            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem">
-                <Border x:Name="TabBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="4,4,0,0" Padding="16,9" Margin="1,0,1,-1">
-                    <ContentPresenter x:Name="HeaderContent" ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
-                </Border>
-                <ControlTemplate.Triggers>
-                    <Trigger Property="IsSelected" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource Surface}"/><Setter TargetName="TabBorder" Property="BorderThickness" Value="1,1,1,0"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="Panel.ZIndex" Value="10"/></Trigger>
-                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource InfoBackground}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/></Trigger>
-                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger>
-                </ControlTemplate.Triggers>
-            </ControlTemplate></Setter.Value></Setter>
-        </Style>
-        <Style TargetType="DataGrid"><Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/><Setter Property="RowBackground" Value="{DynamicResource Surface}"/><Setter Property="AlternatingRowBackground" Value="{DynamicResource ControlBackground}"/><Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource Border}"/></Style>
-        <Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="{DynamicResource ControlBackground}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/></Style>
-        <Style TargetType="DataGridCell"><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/></Style>
-        <Style TargetType="ProgressBar"><Setter Property="Height" Value="10"/><Setter Property="Background" Value="{DynamicResource ControlBackground}"/><Setter Property="Foreground" Value="{DynamicResource Primary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/></Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/Controls.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Window.Resources>
-    <DockPanel>
-        <Border DockPanel.Dock="Top" Background="{DynamicResource HeaderBackground}" Padding="22,14">
-            <Grid>
-                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <StackPanel><TextBlock Text="ScopePilot" Foreground="White" FontSize="24" FontWeight="SemiBold"/><TextBlock Text="Web診断の事前探索と診断対象候補の整理" Foreground="#BFC9D9" Margin="0,3,0,0"/></StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="状態: " Foreground="#BFC9D9" VerticalAlignment="Center"/><TextBlock Text="{Binding StatusText}" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel>
-            </Grid>
+    <Grid Background="{DynamicResource WindowBackground}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="212" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+            <DockPanel Margin="12,24,12,16">
+                <StackPanel DockPanel.Dock="Top" Margin="12,0,12,24">
+                    <TextBlock Text="ScopePilot" FontSize="24" FontWeight="SemiBold" />
+                    <TextBlock Text="診断対象の整理" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0" />
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Bottom" Margin="12,16,12,0">
+                    <TextBlock Text="BURP COMMUNITY" FontSize="11" Foreground="{DynamicResource TextSecondary}" />
+                    <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" Margin="0,6,0,0" />
+                </StackPanel>
+                <ListBox x:Name="Navigation" BorderThickness="0" Background="Transparent" Margin="0" Padding="0" SelectedIndex="0" SelectionChanged="Navigation_SelectionChanged" AutomationProperties.Name="画面の切り替え">
+                    <ListBoxItem IsEnabled="False" Focusable="False" Padding="12,4" Margin="0,0,0,8">
+                        <TextBlock Text="作業の流れ" FontSize="12" Foreground="{DynamicResource TextSecondary}" />
+                    </ListBoxItem>
+                    <ListBoxItem Tag="0" Content="1   案件設定" />
+                    <ListBoxItem Tag="1" Content="2   探索" />
+                    <ListBoxItem Tag="3" Content="3   候補レビュー" />
+                    <ListBoxItem Tag="6" Content="4   Burpへ引き渡し" />
+                    <ListBoxItem IsEnabled="False" Focusable="False" Padding="12,4" Margin="0,24,0,8">
+                        <TextBlock Text="記録と管理" FontSize="12" Foreground="{DynamicResource TextSecondary}" />
+                    </ListBoxItem>
+                    <ListBoxItem Tag="2" Content="観測した通信" />
+                    <ListBoxItem Tag="4" Content="診断所見" />
+                    <ListBoxItem Tag="5" Content="実行履歴" />
+                    <ListBoxItem Tag="7" Content="データ管理" />
+                </ListBox>
+            </DockPanel>
         </Border>
-        <Border DockPanel.Dock="Bottom" Background="{DynamicResource FooterBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="14,8"><TextBlock Text="{Binding SummaryText}" Foreground="{DynamicResource TextSecondary}"/></Border>
-        <TabControl Margin="16">
-            <TabItem Header="1  案件設定">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <Grid Margin="20">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <GroupBox Header="保存済み案件"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <ListBox ItemsSource="{Binding SavedProjects}" SelectedItem="{Binding SelectedSavedProject}" DisplayMemberPath="DisplayName" Height="70" ToolTip="保存済みの案件を選択します。"/>
-                                <Button Grid.Column="1" Content="案件を開く" Command="{Binding LoadProjectCommand}" Margin="8,3,0,10"/>
-                            </Grid></GroupBox>
-                            <GroupBox Header="基本情報"><StackPanel>
-                                <TextBlock Text="案件名"/><TextBox Text="{Binding Project.Name, UpdateSourceTrigger=PropertyChanged}"/>
-                                <TextBlock Text="開始URL"/><TextBox Text="{Binding Project.StartUrl, UpdateSourceTrigger=PropertyChanged}"/>
-                                <TextBlock Text="診断を許可されたOrigin（1行1件）"/><TextBox Text="{Binding Project.AllowedOrigins, UpdateSourceTrigger=PropertyChanged}" Height="86" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
-                                <TextBlock Text="表示・認証に必要だが診断対象外のOrigin"/><TextBox Text="{Binding Project.SupportingOrigins, UpdateSourceTrigger=PropertyChanged}" Height="70" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
-                            </StackPanel></GroupBox>
-                            <GroupBox Header="参照するガイドライン"><StackPanel>
-                                <TextBlock Text="チェックを外した資料は、候補選定・根拠表示・Codexへのコンテキストに使用しません。" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,8"/>
-                                <CheckBox Content="Webアプリケーション脆弱性診断ガイドライン 第1.2版" IsChecked="{Binding Project.Guidelines.WebAppPentestGuidelines, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3"/>
-                                <CheckBox Content="OWASP Top 10:2025" IsChecked="{Binding Project.Guidelines.OwaspTop10, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3"/>
-                                <CheckBox Content="OWASP ASVS 5.0" IsChecked="{Binding Project.Guidelines.Asvs, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3"/>
-                                <CheckBox Content="OWASP WSTG 4.2" IsChecked="{Binding Project.Guidelines.Wstg, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3"/>
-                                <CheckBox Content="OWASP AISVS 1.0（AI機能がある案件）" IsChecked="{Binding Project.Guidelines.Aisvs, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3"/>
-                                <CheckBox Content="OWASP Cloud Native Application Security Top 10" IsChecked="{Binding Project.Guidelines.CloudNativeTop10, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3"/>
-                                <CheckBox Content="デジタル庁 DS-221" IsChecked="{Binding Project.Guidelines.Ds221, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3"/>
-                            </StackPanel></GroupBox>
-                        </StackPanel>
-                        <StackPanel Grid.Column="1">
-                            <GroupBox Header="探索条件"><Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                <TextBlock Text="最大ページ数"/><TextBox Grid.Column="1" Text="{Binding Project.MaxPages}"/>
-                                <TextBlock Grid.Row="1" Text="最大実行時間（分）"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Project.MaxMinutes}"/>
-                                <TextBlock Grid.Row="2" Text="最大通信数"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Project.MaxRequests}"/>
-                            </Grid></GroupBox>
-                            <GroupBox Header="アカウントと操作制限"><StackPanel>
-                                <TextBlock Text="認証ロール（1行1件）"/><TextBox Text="{Binding Project.Roles, UpdateSourceTrigger=PropertyChanged}" Height="70" AcceptsReturn="True" TextChanged="RolesTextBox_TextChanged"/>
-                                <TextBlock Text="今回探索するロール" Margin="0,8,0,0"/><ListBox ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding Project.ActiveRole, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="64"/>
-                                <TextBlock Text="未認証以外では、Codexがログイン画面を開いた後に手動操作を求めます。認証後は同じブラウザセッションで探索を続けます。" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,3,0,8"/>
-                                <TextBlock Text="自動実行しない操作（1行1件）"/><TextBox Text="{Binding Project.ForbiddenActions, UpdateSourceTrigger=PropertyChanged}" Height="120" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
-                            </StackPanel></GroupBox>
-                            <WrapPanel HorizontalAlignment="Right"><Button Content="新しい案件を開始" Command="{Binding NewProjectCommand}"/><Button Content="環境チェック" Command="{Binding CheckEnvironmentCommand}"/><Button Content="MCPをセットアップ" Command="{Binding SetupMcpCommand}"/><Button Content="案件を保存" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryActionButton}"/></WrapPanel>
-                        </StackPanel>
-                    </Grid>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem Header="2  探索コンソール">
-                <Grid Margin="20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <Border Background="{DynamicResource InfoBackground}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" Padding="14" CornerRadius="4"><TextBlock TextWrapping="Wrap" Text="［AI探索を開始］を押すとCodexがPlaywrightで画面を巡回し、Burpで通信を観測します。MFAやCAPTCHAなど人の操作が必要な場合は同じブラウザを開いたまま待機します。"/></Border>
-                    <WrapPanel Grid.Row="1" Margin="0,12,0,12"><Button Content="AI探索を開始" Command="{Binding StartExplorationCommand}" Style="{StaticResource PrimaryActionButton}"/><Button Content="探索を停止" Command="{Binding StopExplorationCommand}"/><Button Content="手動操作完了" Command="{Binding ResumeExplorationCommand}" Style="{StaticResource SuccessActionButton}"/><Button Content="探索パッケージのみ生成" Command="{Binding BuildExplorationPackageCommand}"/><Button Content="結果を取り込む" Click="Import_Click"/><Button Content="候補を再生成" Command="{Binding GenerateCandidatesCommand}"/><Button Content="Burp Scope出力" Command="{Binding ExportBurpScopeCommand}"/><Button Content="案件レポート出力" Command="{Binding ExportFindingsCommand}"/><Button Content="ログをすべてコピー" Click="CopyLog_Click"/></WrapPanel>
-                    <Border Grid.Row="2" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="10" Margin="0,0,0,10" CornerRadius="4"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBlock Text="{Binding RunPhase}" FontWeight="SemiBold" Margin="0,0,12,5"/><TextBlock Grid.Column="1" Text="{Binding RunProgressDetail}" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Margin="0,0,12,5"/><TextBlock Grid.Column="2" Text="{Binding RunProgress, StringFormat={}{0}%}" FontWeight="SemiBold"/>
-                        <ProgressBar Grid.Row="1" Grid.ColumnSpan="3" Minimum="0" Maximum="100" Value="{Binding RunProgress, Mode=OneWay}"/>
-                    </Grid></Border>
-                    <Border Grid.Row="3" Background="{DynamicResource WarningBackground}" BorderBrush="{DynamicResource WarningBorder}" BorderThickness="1" Padding="10" Margin="0,0,0,10" CornerRadius="4">
-                        <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding InterventionText}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Border.Style>
-                        <TextBlock Text="{Binding InterventionText}" TextWrapping="Wrap"/>
-                    </Border>
-                    <GroupBox Grid.Row="4" Header="実行ログ（テキストを選択して Ctrl+C でコピーできます）">
-                        <TextBox Text="{Binding ConsoleText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" AcceptsTab="True"
-                                 TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                 FontFamily="Consolas" FontSize="13" Background="{DynamicResource ConsoleBackground}" Foreground="{DynamicResource ConsoleForeground}" Padding="10"
-                                 ContextMenuService.ShowOnDisabled="True">
-                            <TextBox.ContextMenu>
-                                <ContextMenu><MenuItem Header="選択範囲をコピー" Command="ApplicationCommands.Copy" CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/></ContextMenu>
-                            </TextBox.ContextMenu>
-                        </TextBox>
-                    </GroupBox>
-                </Grid>
-            </TabItem>
-            <TabItem Header="3  発見した通信">
-                <Grid Margin="20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <TextBlock Text="{Binding RequestSummary}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding Project.Requests}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal"><DataGrid.Columns>
-                        <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="85"/><DataGridTextColumn Header="Status" Binding="{Binding StatusCode}" Width="75"/><DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="*"/><DataGridTextColumn Header="認証ロール" Binding="{Binding Role}" Width="180"/><DataGridTextColumn Header="Content-Type" Binding="{Binding ContentType}" Width="180"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="120"/>
-                    </DataGrid.Columns></DataGrid>
-                </Grid>
-            </TabItem>
-            <TabItem Header="4  診断対象候補">
-                <Grid Margin="20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{Binding CandidateSummary}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/><TextBlock Text="{Binding CandidateFilterSummary}" Foreground="{DynamicResource TextSecondary}" Margin="14,0,0,0" VerticalAlignment="Center"/></StackPanel>
-                        <Button Grid.Column="1" Content="採用・除外の記録を解除" Command="{Binding ResetCandidateDecisionsCommand}" Margin="12,0,0,0" ToolTip="この案件で保存した採用・除外の判断をすべて解除し、現在の観測通信から候補を再判定します。"/>
-                        <WrapPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,6,0,0">
-                            <TextBlock Text="候補検索" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBox Text="{Binding CandidateSearch, UpdateSourceTrigger=PropertyChanged}" Width="300" Margin="0,3,8,4" ToolTip="URL、分類、理由、ロールから候補を検索"/>
-                            <Button Content="すべて" Command="{Binding ShowAllCandidatesCommand}" MinWidth="72" Padding="10,6"/>
-                            <Button Content="採用のみ" Command="{Binding ShowSelectedCandidatesCommand}" MinWidth="80" Padding="10,6"/>
-                            <Button Content="除外のみ" Command="{Binding ShowExcludedCandidatesCommand}" MinWidth="80" Padding="10,6"/>
-                            <Button Content="表示中を採用" Command="{Binding AdoptVisibleCandidatesCommand}" MinWidth="105" Padding="10,6"/>
-                            <Button Content="表示中を除外" Command="{Binding ExcludeVisibleCandidatesCommand}" MinWidth="105" Padding="10,6"/>
+        <Grid Grid.Column="1" Margin="28,24,28,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <DockPanel Margin="0,0,0,20">
+                <Button DockPanel.Dock="Right" Content="案件を保存" Command="{Binding SaveCommand}" Margin="16,0,0,0" VerticalAlignment="Center" ToolTip="Ctrl+S" />
+                <StackPanel>
+                    <TextBlock Text="{Binding SelectedItem.Header, ElementName=Workspace}" FontSize="28" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding SelectedItem.Tag, ElementName=Workspace}" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                </StackPanel>
+            </DockPanel>
+            <Border Grid.Row="1" Background="{DynamicResource InfoBackground}" CornerRadius="6" Padding="12,9" Margin="0,0,0,16">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding StatusText}" FontWeight="SemiBold" Margin="16,0,0,0" />
+                    <TextBlock Text="{Binding SummaryText}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SummaryText}" />
+                </DockPanel>
+            </Border>
+            <TabControl x:Name="Workspace" Grid.Row="2" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource TextPrimary}" SelectedIndex="0" KeyboardNavigation.TabNavigation="Local">
+                <TabControl.Template>
+                    <ControlTemplate TargetType="TabControl">
+                        <ContentPresenter ContentSource="SelectedContent" />
+                    </ControlTemplate>
+                </TabControl.Template>
+                <TabItem Header="案件設定" Tag="対象範囲と参照基準を設定して、探索の準備をします。">
+                    <DockPanel>
+                        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <Button Content="新しい案件" Command="{Binding NewProjectCommand}" />
+                            <Button Content="探索へ進む →" Tag="1" Click="Navigate_Click" Style="{StaticResource PrimaryActionButton}" />
                         </WrapPanel>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,16,0">
+                            <StackPanel x:Name="SettingsForm" MaxWidth="880" HorizontalAlignment="Left" Margin="0" Style="{StaticResource EditableWhenIdle}" Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+                                <GroupBox Header="保存済み案件" Margin="0,0,0,16">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ListBox ItemsSource="{Binding SavedProjects}" SelectedItem="{Binding SelectedSavedProject}" DisplayMemberPath="DisplayName" Height="70" ToolTip="保存済みの案件を選択します。" />
+                                        <Button Grid.Column="1" Content="案件を開く" Command="{Binding LoadProjectCommand}" Margin="8,3,0,10" />
+                                    </Grid>
+                                </GroupBox>
+                                <GroupBox Header="基本情報" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource Hint}" Text="開始URLと、探索・診断を許可された範囲を入力してください。" />
+                                        <TextBlock Text="案件名" />
+                                        <TextBox Text="{Binding Project.Name, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="案件名" />
+                                        <TextBlock Text="開始URL" />
+                                        <TextBox Text="{Binding Project.StartUrl, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="開始URL" />
+                                        <TextBlock Style="{StaticResource Hint}" Text="Originは「https://example.com」のように、スキーム・ホスト・ポートで指定します。パスは含めません。" />
+                                        <TextBlock Text="診断を許可されたOrigin（1行1件）" />
+                                        <TextBox Text="{Binding Project.AllowedOrigins, UpdateSourceTrigger=PropertyChanged}" Height="86" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="診断を許可されたOrigin" />
+                                        <TextBlock Text="表示・認証に必要だが診断対象外のOrigin" />
+                                        <TextBox Text="{Binding Project.SupportingOrigins, UpdateSourceTrigger=PropertyChanged}" Height="70" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="診断対象外のOrigin" />
+                                    </StackPanel>
+                                </GroupBox>
+                                <GroupBox Header="アカウントと操作制限" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="認証ロール（1行1件）" />
+                                        <TextBox Text="{Binding Project.Roles, UpdateSourceTrigger=PropertyChanged}" Height="70" AcceptsReturn="True" TextChanged="RolesTextBox_TextChanged" AutomationProperties.Name="認証ロール" />
+                                        <TextBlock Text="今回探索するロール" Margin="0,8,0,0" />
+                                        <ListBox ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding Project.ActiveRole, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="64" />
+                                        <TextBlock Text="未認証以外では、Codexがログイン画面を開いた後に手動操作を求めます。認証後は同じブラウザセッションで探索を続けます。" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,3,0,8" />
+                                        <TextBlock Text="自動実行しない操作（1行1件）" />
+                                        <TextBox Text="{Binding Project.ForbiddenActions, UpdateSourceTrigger=PropertyChanged}" Height="120" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="自動実行しない操作" />
+                                    </StackPanel>
+                                </GroupBox>
+                                <GroupBox Header="探索条件" Margin="0,0,0,16">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition />
+                                            <ColumnDefinition />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition />
+                                            <RowDefinition />
+                                            <RowDefinition />
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="最大ページ数" />
+                                        <TextBox Grid.Column="1" Text="{Binding Project.MaxPages}" AutomationProperties.Name="最大ページ数" />
+                                        <TextBlock Grid.Row="1" Text="最大実行時間（分）" />
+                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Project.MaxMinutes}" AutomationProperties.Name="最大実行時間（分）" />
+                                        <TextBlock Grid.Row="2" Text="最大通信数" />
+                                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Project.MaxRequests}" AutomationProperties.Name="最大通信数" />
+                                    </Grid>
+                                </GroupBox>
+                                <GroupBox Header="参照するガイドライン" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="チェックを外した資料は、候補選定・根拠表示・Codexへのコンテキストに使用しません。" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,8" />
+                                        <CheckBox IsChecked="{Binding Project.Guidelines.WebAppPentestGuidelines, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3">
+                                            <TextBlock Text="Webアプリケーション脆弱性診断ガイドライン 第1.2版" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                        <CheckBox IsChecked="{Binding Project.Guidelines.OwaspTop10, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3">
+                                            <TextBlock Text="OWASP Top 10:2025" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                        <CheckBox IsChecked="{Binding Project.Guidelines.Asvs, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3">
+                                            <TextBlock Text="OWASP ASVS 5.0" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                        <CheckBox IsChecked="{Binding Project.Guidelines.Wstg, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3">
+                                            <TextBlock Text="OWASP WSTG 4.2" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                        <CheckBox IsChecked="{Binding Project.Guidelines.Aisvs, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3">
+                                            <TextBlock Text="OWASP AISVS 1.0（AI機能がある案件）" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                        <CheckBox IsChecked="{Binding Project.Guidelines.CloudNativeTop10, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3">
+                                            <TextBlock Text="OWASP Cloud Native Application Security Top 10" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                        <CheckBox IsChecked="{Binding Project.Guidelines.Ds221, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3">
+                                            <TextBlock Text="デジタル庁 DS-221" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                    </StackPanel>
+                                </GroupBox>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </TabItem>
+                <TabItem Header="探索" Tag="ページと通信を収集し、AIで確認すべきパターンに絞り込みます。">
+                    <Grid Margin="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Border Background="{DynamicResource InfoBackground}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" Padding="14" CornerRadius="4">
+                            <TextBlock TextWrapping="Wrap" Text="まず高速クローラで収集し、動的な代表パターンをAIで確認します。ログインなどの手動操作が必要になったら、ここに案内が表示されます。" />
+                        </Border>
+                        <WrapPanel Grid.Row="1" Margin="0,12,0,12">
+                            <Button Content="探索を開始" Command="{Binding StartExplorationCommand}" Style="{StaticResource PrimaryActionButton}" />
+                            <Button Content="停止" Command="{Binding StopExplorationCommand}" />
+                            <Button Content="候補を確認 →" Tag="3" Click="Navigate_Click" />
+                            <Button Content="環境チェック" Command="{Binding CheckEnvironmentCommand}" />
+                            <Button Content="MCP接続を設定" Command="{Binding SetupMcpCommand}" />
+                            <Button Content="探索パッケージを生成" Command="{Binding BuildExplorationPackageCommand}" ToolTip="外部実行・調査用に設定ファイルだけを作成します。" />
+                        </WrapPanel>
+                        <Border Grid.Row="2" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="10" Margin="0,0,0,10" CornerRadius="4">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding RunPhase}" FontWeight="SemiBold" Margin="0,0,12,5" />
+                                <TextBlock Grid.Column="1" Text="{Binding RunProgressDetail}" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Margin="0,0,12,5" />
+                                <TextBlock Grid.Column="2" Text="{Binding RunProgress, StringFormat={}{0}%}" FontWeight="SemiBold" />
+                                <ProgressBar Grid.Row="1" Grid.ColumnSpan="3" Minimum="0" Maximum="100" Value="{Binding RunProgress, Mode=OneWay}" />
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="3" Background="{DynamicResource WarningBackground}" BorderBrush="{DynamicResource WarningBorder}" BorderThickness="1" Padding="10" Margin="0,0,0,10" CornerRadius="4">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding InterventionText}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="手動操作を完了して再開" Command="{Binding ResumeExplorationCommand}" Style="{StaticResource PrimaryActionButton}" Margin="16,0,0,0" VerticalAlignment="Center" />
+                                <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                                    <TextBlock Text="{Binding InterventionText}" TextWrapping="Wrap" />
+                                </ScrollViewer>
+                            </DockPanel>
+                        </Border>
+                        <GroupBox Grid.Row="4" Header="実行ログ" Margin="0" Padding="16">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top">
+                                    <Button DockPanel.Dock="Right" Content="ログをコピー" Click="CopyLog_Click" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="新しいログが上に表示されます。選択して Ctrl+C でもコピーできます。" />
+                                </DockPanel>
+                                <TextBox Text="{Binding ConsoleText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="13" Background="{DynamicResource ConsoleBackground}" Foreground="{DynamicResource ConsoleForeground}" Padding="10" ContextMenuService.ShowOnDisabled="True" Margin="0">
+                                    <TextBox.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="選択範囲をコピー" Command="ApplicationCommands.Copy" CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                        </ContextMenu>
+                                    </TextBox.ContextMenu>
+                                </TextBox>
+                            </DockPanel>
+                        </GroupBox>
                     </Grid>
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding FilteredCandidates}" SelectedItem="{Binding SelectedCandidate}" AutoGenerateColumns="False" CanUserAddRows="False" GridLinesVisibility="Horizontal" CellEditEnding="CandidateGrid_CellEditEnding"><DataGrid.Columns>
-                        <DataGridCheckBoxColumn Header="採用" Binding="{Binding Selected}" Width="60"/><DataGridTextColumn Header="判定" Binding="{Binding Decision}" Width="85" IsReadOnly="True"/><DataGridTextColumn Header="確信度" Binding="{Binding Confidence}" Width="70" IsReadOnly="True"/><DataGridTextColumn Header="分類" Binding="{Binding Category}" Width="130" IsReadOnly="True"/><DataGridTextColumn Header="Method" Binding="{Binding Representative.Method}" Width="75" IsReadOnly="True"/>
-                        <DataGridTemplateColumn Header="代表URL" Width="2*" IsReadOnly="True"><DataGridTemplateColumn.CellTemplate><DataTemplate>
-                            <Button Content="{Binding Representative.Url}" Tag="{Binding Representative.Url}" Click="CandidateUrl_Click" HorizontalAlignment="Left" Padding="2,0" Margin="0" MinWidth="0" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Link}" Cursor="Hand" ToolTip="既定のブラウザで開く"/>
-                        </DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-                        <DataGridTextColumn Header="類似数" Binding="{Binding SimilarCount}" Width="70" IsReadOnly="True"/><DataGridTextColumn Header="選定理由" Binding="{Binding Reason}" Width="2*" IsReadOnly="True"/>
-                    </DataGrid.Columns></DataGrid>
-                    <GroupBox Grid.Row="2" Header="選択した候補の判定シミュレーション" Margin="0,10,0,0" Padding="10">
-                        <StackPanel><ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto"><TextBlock Text="{Binding SelectedCandidate.DecisionTrace}" TextWrapping="Wrap" FontFamily="Consolas" LineHeight="20"/></ScrollViewer>
-                            <Border Background="{DynamicResource WarningBackground}" BorderBrush="{DynamicResource WarningBorder}" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,8,0,0"><StackPanel><TextBlock Text="診断実行時の注意" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedCandidate.DiagnosticCaution}" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel></Border>
-                        </StackPanel>
-                    </GroupBox>
-                    <TextBlock Grid.Row="3" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Text="チェックを外した候補は除外キャッシュへ保存し、次回はCodexの確認対象から外します。採用済み候補と新規発見パターンは次回の対象です。候補を再採用するとキャッシュから外れます。［採用・除外の記録を解除］で、この案件の判断を初期化して再判定できます。高速クローラは新規URLを見つけるため次回も巡回します。"/>
-                </Grid>
-            </TabItem>
-            <TabItem Header="5  診断所見">
-                <Grid Margin="20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <TextBlock Text="{Binding FindingSummary}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding Project.Findings}" SelectedItem="{Binding SelectedFinding}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"><DataGrid.Columns>
-                        <DataGridTextColumn Header="深刻度" Binding="{Binding Severity}" Width="75"/><DataGridTextColumn Header="確信度" Binding="{Binding Confidence}" Width="70"/><DataGridTextColumn Header="分類" Binding="{Binding Category}" Width="130"/><DataGridTextColumn Header="状態" Binding="{Binding Status}" Width="90"/><DataGridTextColumn Header="タイトル" Binding="{Binding Title}" Width="2*"/><DataGridTextColumn Header="対象URL" Binding="{Binding AffectedUrls}" Width="2*"/>
-                    </DataGrid.Columns></DataGrid>
-                    <GroupBox Grid.Row="2" Header="選択した所見の証跡" Margin="0,10,0,0" Padding="10">
-                        <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto"><StackPanel>
-                            <TextBlock Text="{Binding SelectedFinding.Description}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                            <TextBlock Text="観測根拠" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedFinding.Evidence}" TextWrapping="Wrap" FontFamily="Consolas" Margin="0,3,0,8"/>
-                            <TextBlock Text="対象URL" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedFinding.AffectedUrls}" TextWrapping="Wrap" Margin="0,3,0,8"/>
-                            <TextBlock Text="参照基準" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedFinding.GuidelineBasis}" TextWrapping="Wrap" Margin="0,3,0,8"/>
-                            <TextBlock Text="制約・未確認事項" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedFinding.Limitations}" TextWrapping="Wrap" Margin="0,3,0,0"/>
-                        </StackPanel></ScrollViewer>
-                    </GroupBox>
-                </Grid>
-            </TabItem>
-            <TabItem Header="6  実行履歴">
-                <Grid Margin="20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <TextBlock Text="{Binding RunHistorySummary}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding RunHistory}" SelectedItem="{Binding SelectedRun}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="開始日時" Binding="{Binding StartedAtDisplay}" Width="150"/>
-                            <DataGridTextColumn Header="ロール" Binding="{Binding Role}" Width="120"/>
-                            <DataGridTextColumn Header="状態" Binding="{Binding StatusDisplay}" Width="105"/>
-                            <DataGridTextColumn Header="高速通信" Binding="{Binding FastRequestCount}" Width="80"/>
-                            <DataGridTextColumn Header="AI観測" Binding="{Binding AiObservedCount}" Width="75"/>
-                            <DataGridTextColumn Header="要求/フォーム" Binding="{Binding PatternCountDisplay}" Width="105"/>
-                            <DataGridTextColumn Header="前回差分 +/Δ/-" Binding="{Binding DiffCountDisplay}" Width="120"/>
-                            <DataGridTextColumn Header="結果概要" Binding="{Binding Summary}" Width="*"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                    <GroupBox Grid.Row="2" Header="選択した実行" Margin="0,10,0,0" Padding="10">
-                        <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <TextBlock Text="{Binding SelectedRun.Summary}" TextWrapping="Wrap"/>
-                            <TextBlock Grid.Row="1" Text="{Binding SelectedRun.Limitations}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,5,0,0"/>
-                            <TextBlock Grid.Row="2" Text="{Binding SelectedRun.DiffSummary}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,8,0,3"/>
-                            <ScrollViewer Grid.Row="3" MaxHeight="110" VerticalScrollBarVisibility="Auto"><TextBlock Text="{Binding SelectedRun.DiffDetails}" TextWrapping="Wrap" FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}"/></ScrollViewer>
-                            <TextBlock Grid.Row="4" Text="{Binding SelectedRun.Directory}" TextWrapping="Wrap" FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}" Margin="0,8,0,4"/>
-                            <WrapPanel Grid.Row="5">
-                                <Button Content="実行フォルダーを開く" Command="{Binding OpenRunFolderCommand}"/>
-                                <Button Content="実行ログ" Tag="codex-run.log" Click="RunArtifact_Click"/>
-                                <Button Content="AI入力" Tag="ai-input.json" Click="RunArtifact_Click"/>
-                                <Button Content="Codex結果" Tag="codex-result.json" Click="RunArtifact_Click"/>
-                                <Button Content="探索サマリー" Tag="exploration-summary.json" Click="RunArtifact_Click"/>
-                                <Button Content="復旧記録" Tag="scopepilot-recovery.json" Click="RunArtifact_Click"/>
-                                <Button Content="この設定で再試行" Command="{Binding RetrySelectedRunCommand}" Style="{StaticResource PrimaryActionButton}"/>
+                </TabItem>
+                <TabItem Header="観測した通信" Tag="収集した通信の応答、認証ロール、取得元を確認します。">
+                    <Grid Margin="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding Project.Requests}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="85" MinWidth="85" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding StatusCode}" Width="75" MinWidth="75" />
+                                <DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="*" MinWidth="220" />
+                                <DataGridTextColumn Header="認証ロール" Binding="{Binding Role}" Width="180" MinWidth="180" />
+                                <DataGridTextColumn Header="Content-Type" Binding="{Binding ContentType}" Width="180" MinWidth="180" />
+                                <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="120" MinWidth="120" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="通信ファイルを取り込む" Click="Import_Click" Style="{StaticResource EditableButton}" />
+                            <TextBlock Text="{Binding RequestSummary}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12" TextWrapping="Wrap" />
+                        </DockPanel>
+                        <Border Grid.Row="1">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Project.Requests.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="まだ通信がありません。探索を開始するか、HAR・JSONL・URL一覧を取り込んでください。" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="480" TextAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </TabItem>
+                <TabItem Header="候補レビュー" Tag="代表パターンの判断根拠を確認し、診断対象を採用・除外します。">
+                    <Grid Margin="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="1.2*" MinHeight="90" />
+                            <RowDefinition Height="13" />
+                            <RowDefinition Height="*" MinHeight="80" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{Binding CandidateSummary}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,8" />
+                            <WrapPanel Grid.Row="1">
+                                <TextBlock Text="検索" VerticalAlignment="Center" Margin="0,0,8,8" />
+                                <TextBox x:Name="CandidateSearchBox" Text="{Binding CandidateSearch, UpdateSourceTrigger=PropertyChanged, Delay=200}" Width="220" Margin="0,0,12,8" AutomationProperties.Name="候補を検索" ToolTip="URL・分類・理由・ロールを検索 (Ctrl+F)" />
+                                <Button Content="すべて" Command="{Binding ShowAllCandidatesCommand}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CandidateReviewFilter}" Value="すべて">
+                                                    <Setter Property="Background" Value="{DynamicResource Selection}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Link}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="採用のみ" Command="{Binding ShowSelectedCandidatesCommand}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CandidateReviewFilter}" Value="採用">
+                                                    <Setter Property="Background" Value="{DynamicResource Selection}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Link}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="除外のみ" Command="{Binding ShowExcludedCandidatesCommand}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CandidateReviewFilter}" Value="除外">
+                                                    <Setter Property="Background" Value="{DynamicResource Selection}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Link}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="表示中を採用" Command="{Binding AdoptVisibleCandidatesCommand}" />
+                                <Button Content="表示中を除外" Command="{Binding ExcludeVisibleCandidatesCommand}" />
                             </WrapPanel>
+                            <DockPanel Grid.Row="2">
+                                <Button DockPanel.Dock="Right" Content="候補を再生成" Command="{Binding GenerateCandidatesCommand}" />
+                                <Button DockPanel.Dock="Right" Content="判断をリセット" Click="ResetCandidateDecisions_Click" Style="{StaticResource EditableButton}" ToolTip="この案件の採用・除外記録を解除して再判定します。" />
+                                <TextBlock Text="{Binding CandidateFilterSummary}" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" />
+                            </DockPanel>
                         </Grid>
-                    </GroupBox>
-                </Grid>
-            </TabItem>
-            <TabItem Header="7  Burp連携">
-                <Grid Margin="20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <Border Background="{DynamicResource InfoBackground}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" Padding="14" CornerRadius="4"><TextBlock TextWrapping="Wrap" Text="Burp Suite Community EditionではScopeを自動変更できないため、採用候補を少数のURL正規表現へ集約して手動登録します。案件の許可Originと一致することを確認してから追加してください。"/></Border>
-                    <WrapPanel Grid.Row="1" Margin="0,12,0,8"><Button Content="Scope出力を生成" Command="{Binding ExportBurpScopeCommand}" Style="{StaticResource PrimaryActionButton}"/><Button Content="次をコピー" Command="{Binding CopyNextBurpRegexCommand}"/><Button Content="出力フォルダーを開く" Command="{Binding OpenBurpExportFolderCommand}"/></WrapPanel>
-                    <GroupBox Grid.Row="2" Header="登録用URL正規表現"><ListBox ItemsSource="{Binding BurpScopeRegexes}" SelectedItem="{Binding SelectedBurpScopeRegex}" FontFamily="Consolas" HorizontalContentAlignment="Stretch"><ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Padding="3"/></DataTemplate></ListBox.ItemTemplate></ListBox></GroupBox>
-                    <Border Grid.Row="3" Background="{DynamicResource WarningBackground}" BorderBrush="{DynamicResource WarningBorder}" BorderThickness="1" Padding="12" CornerRadius="4"><StackPanel>
-                        <TextBlock Text="{Binding BurpHandoffStatus}" TextWrapping="Wrap" FontWeight="SemiBold"/>
-                        <TextBlock Text="登録手順: BurpのTarget > Scopeを開き、Include in scopeで追加します。コピーした値をURL regexへ貼り付け、Protocol・Host・Portが案件の許可Originと一致することを確認します。出力フォルダーには全候補の正規表現、代表URL、JSON証跡、TSV形式の診断作業表も保存されます。" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                    </StackPanel></Border>
-                </Grid>
-            </TabItem>
-            <TabItem Header="8  データ管理">
-                <Grid Margin="20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <TextBlock Text="案件データのバックアップと整理" FontSize="18" FontWeight="SemiBold"/>
-                    <Border Grid.Row="1" Background="{DynamicResource InfoBackground}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" Padding="14" Margin="0,12,0,12" CornerRadius="4"><StackPanel><TextBlock Text="{Binding DataSummaryText}" FontWeight="SemiBold"/><TextBlock Text="{Binding LastBackupPath}" TextWrapping="Wrap" FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}" Margin="0,5,0,0"/></StackPanel></Border>
-                    <WrapPanel Grid.Row="2"><Button Content="容量を再集計" Command="{Binding RefreshDataSummaryCommand}"/><Button Content="案件をZIPバックアップ" Command="{Binding BackupProjectCommand}" Style="{StaticResource PrimaryActionButton}"/><Button Content="データフォルダーを開く" Command="{Binding OpenDataFolderCommand}"/></WrapPanel>
-                    <StackPanel Grid.Row="3" Margin="0,16,0,0">
-                        <GroupBox Header="データ整理"><StackPanel>
-                            <TextBlock Text="選択中の探索実行を削除する場合は、実行履歴タブで対象を選んでから実行してください。案件の観測通信へ取り込み済みのデータは残ります。" TextWrapping="Wrap"/>
-                            <WrapPanel><Button Content="選択した探索実行を削除" Click="DeleteSelectedRun_Click"/><Button Content="Burp出力とレポートを削除" Click="DeleteGeneratedArtifacts_Click"/></WrapPanel>
-                            <TextBlock Text="削除前にZIPバックアップを作成すると、案件JSON、探索実行、Burp出力、レポートをまとめて保管できます。" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Margin="0,8,0,0"/>
-                        </StackPanel></GroupBox>
-                    </StackPanel>
-                </Grid>
-            </TabItem>
-        </TabControl>
-    </DockPanel>
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding FilteredCandidates}" SelectedItem="{Binding SelectedCandidate}" AutoGenerateColumns="False" CanUserAddRows="False" GridLinesVisibility="Horizontal" CellEditEnding="CandidateGrid_CellEditEnding" Style="{StaticResource ReviewGrid}" AutomationProperties.Name="診断対象候補">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="採用" Width="64" MinWidth="64">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Click="CandidateSelection_Click" AutomationProperties.Name="診断対象に採用" HorizontalAlignment="Center" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="判定" Binding="{Binding Decision}" Width="85" MinWidth="85" IsReadOnly="True" />
+                                <DataGridTextColumn Header="確信度" Binding="{Binding Confidence}" Width="70" MinWidth="70" IsReadOnly="True" />
+                                <DataGridTextColumn Header="分類" Binding="{Binding Category}" Width="130" MinWidth="130" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Method" Binding="{Binding Representative.Method}" Width="75" MinWidth="75" IsReadOnly="True" />
+                                <DataGridTemplateColumn Header="代表URL" Width="*" IsReadOnly="True" MinWidth="260">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="{Binding Representative.Url}" Tag="{Binding Representative.Url}" Click="CandidateUrl_Click" HorizontalAlignment="Left" Padding="2,0" Margin="0" MinWidth="0" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Link}" Cursor="Hand" ToolTip="既定のブラウザで開く" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="類似数" Binding="{Binding SimilarCount}" Width="70" MinWidth="70" IsReadOnly="True" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <GroupBox Grid.Row="3" Header="判断の根拠と診断時の注意" Margin="0" Padding="16">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <TextBlock Text="一覧で候補を選ぶと、理由・注意点・判断の経緯を表示します。">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource Hint}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedCandidate}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding SelectedCandidate.Reason}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                    <TextBlock Text="{Binding SelectedCandidate.DiagnosticCaution}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                                    <TextBlock Text="{Binding SelectedCandidate.GuidelineBasis}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,12" />
+                                    <TextBlock Text="{Binding SelectedCandidate.DecisionTrace}" TextWrapping="Wrap" FontFamily="Consolas, Yu Gothic UI" LineHeight="22" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </GroupBox>
+                        <TextBlock Grid.Row="4" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Text="採用・除外は自動保存されます。除外したパターンは次回のAI確認から外れ、新規パターンと採用済み候補は対象に残ります。" />
+                        <GridSplitter Grid.Row="2" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" VerticalAlignment="Center" AutomationProperties.Name="一覧と詳細の高さを調整" />
+                        <Border Grid.Row="1">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding FilteredCandidates.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="表示する候補がありません。検索条件を変えるか、探索で通信を収集してください。" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="480" TextAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </TabItem>
+                <TabItem Header="診断所見" Tag="観測根拠と未確認事項を確認します。所見は脆弱性の確定を意味しません。">
+                    <Grid Margin="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="100" />
+                            <RowDefinition Height="13" />
+                            <RowDefinition Height="*" MinHeight="100" />
+                        </Grid.RowDefinitions>
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding Project.Findings}" SelectedItem="{Binding SelectedFinding}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="深刻度" Binding="{Binding Severity}" Width="75" MinWidth="75" />
+                                <DataGridTextColumn Header="確信度" Binding="{Binding Confidence}" Width="70" MinWidth="70" />
+                                <DataGridTextColumn Header="分類" Binding="{Binding Category}" Width="130" MinWidth="130" />
+                                <DataGridTextColumn Header="状態" Binding="{Binding Status}" Width="90" MinWidth="90" />
+                                <DataGridTextColumn Header="タイトル" Binding="{Binding Title}" Width="2*" MinWidth="220" />
+                                <DataGridTextColumn Header="対象URL" Binding="{Binding AffectedUrls}" Width="2*" MinWidth="220" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <GroupBox Grid.Row="3" Header="選択した所見の証跡" Margin="0" Padding="16">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SelectedFinding.Description}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                    <TextBlock Text="観測根拠" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding SelectedFinding.Evidence}" TextWrapping="Wrap" FontFamily="Consolas" Margin="0,3,0,8" />
+                                    <TextBlock Text="対象URL" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding SelectedFinding.AffectedUrls}" TextWrapping="Wrap" Margin="0,3,0,8" />
+                                    <TextBlock Text="参照基準" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding SelectedFinding.GuidelineBasis}" TextWrapping="Wrap" Margin="0,3,0,8" />
+                                    <TextBlock Text="制約・未確認事項" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding SelectedFinding.Limitations}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </GroupBox>
+                        <GridSplitter Grid.Row="2" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" VerticalAlignment="Center" AutomationProperties.Name="一覧と詳細の高さを調整" />
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="案件レポートを出力" Command="{Binding ExportFindingsCommand}" Style="{StaticResource PrimaryActionButton}" />
+                            <TextBlock Text="{Binding FindingSummary}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12" TextWrapping="Wrap" />
+                        </DockPanel>
+                        <Border Grid.Row="1">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Project.Findings.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="まだ所見がありません。探索後、AIが出力した観測結果がここに表示されます。" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="480" TextAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </TabItem>
+                <TabItem Header="実行履歴" Tag="過去の結果、前回からの差分、取得できなかった情報を確認します。">
+                    <Grid Margin="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="100" />
+                            <RowDefinition Height="13" />
+                            <RowDefinition Height="*" MinHeight="100" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="{Binding RunHistorySummary}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12" TextWrapping="Wrap" />
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding RunHistory}" SelectedItem="{Binding SelectedRun}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="開始日時" Binding="{Binding StartedAtDisplay}" Width="150" MinWidth="150" />
+                                <DataGridTextColumn Header="ロール" Binding="{Binding Role}" Width="120" MinWidth="120" />
+                                <DataGridTextColumn Header="状態" Binding="{Binding StatusDisplay}" Width="105" MinWidth="105" />
+                                <DataGridTextColumn Header="高速通信" Binding="{Binding FastRequestCount}" Width="80" MinWidth="80" />
+                                <DataGridTextColumn Header="AI観測" Binding="{Binding AiObservedCount}" Width="75" MinWidth="75" />
+                                <DataGridTextColumn Header="要求/フォーム" Binding="{Binding PatternCountDisplay}" Width="105" MinWidth="105" />
+                                <DataGridTextColumn Header="前回差分 +/Δ/-" Binding="{Binding DiffCountDisplay}" Width="120" MinWidth="120" />
+                                <DataGridTextColumn Header="結果概要" Binding="{Binding Summary}" Width="*" MinWidth="220" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <GroupBox Grid.Row="3" Header="選択した実行" Margin="0" Padding="16">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="{Binding SelectedRun.Summary}" TextWrapping="Wrap" />
+                                    <TextBlock Grid.Row="1" Text="{Binding SelectedRun.Limitations}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,5,0,0" />
+                                    <TextBlock Grid.Row="2" Text="{Binding SelectedRun.DiffSummary}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,8,0,3" />
+                                    <ScrollViewer Grid.Row="3" MaxHeight="110" VerticalScrollBarVisibility="Auto">
+                                        <TextBlock Text="{Binding SelectedRun.DiffDetails}" TextWrapping="Wrap" FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}" />
+                                    </ScrollViewer>
+                                    <TextBlock Grid.Row="4" Text="{Binding SelectedRun.Directory}" TextWrapping="Wrap" FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}" Margin="0,8,0,4" />
+                                    <WrapPanel Grid.Row="5" Style="{StaticResource EditableWhenIdle}">
+                                        <Button Content="実行フォルダーを開く" Command="{Binding OpenRunFolderCommand}" />
+                                        <Button Content="実行ログ" Tag="codex-run.log" Click="RunArtifact_Click" />
+                                        <Button Content="AI入力" Tag="ai-input.json" Click="RunArtifact_Click" />
+                                        <Button Content="Codex結果" Tag="codex-result.json" Click="RunArtifact_Click" />
+                                        <Button Content="探索サマリー" Tag="exploration-summary.json" Click="RunArtifact_Click" />
+                                        <Button Content="復旧記録" Tag="scopepilot-recovery.json" Click="RunArtifact_Click" />
+                                        <Button Content="現在の設定で再試行" Command="{Binding RetrySelectedRunCommand}" Style="{StaticResource PrimaryActionButton}" />
+                                        <Button Content="この実行を削除" Click="DeleteSelectedRun_Click" />
+                                    </WrapPanel>
+                                </Grid>
+                            </ScrollViewer>
+                        </GroupBox>
+                        <GridSplitter Grid.Row="2" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" VerticalAlignment="Center" AutomationProperties.Name="一覧と詳細の高さを調整" />
+                        <Border Grid.Row="1">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding RunHistory.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="探索の実行履歴はまだありません。探索を開始すると結果が記録されます。" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="480" TextAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </TabItem>
+                <TabItem Header="Burpへ引き渡し" Tag="採用した候補を出力し、Burp SuiteのScopeへ登録します。">
+                    <Grid Margin="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Border Background="{DynamicResource InfoBackground}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" Padding="14" CornerRadius="4">
+                            <TextBlock TextWrapping="Wrap" Text="Burp Suite Community EditionではScopeを自動変更できないため、採用候補を少数のURL正規表現へ集約して手動登録します。案件の許可Originと一致することを確認してから追加してください。" />
+                        </Border>
+                        <WrapPanel Grid.Row="1" Margin="0,12,0,8">
+                            <Button Content="Scope出力を生成" Command="{Binding ExportBurpScopeCommand}" Style="{StaticResource PrimaryActionButton}" />
+                            <Button Content="次をコピー" Command="{Binding CopyNextBurpRegexCommand}" />
+                            <Button Content="出力フォルダーを開く" Command="{Binding OpenBurpExportFolderCommand}" />
+                        </WrapPanel>
+                        <GroupBox Grid.Row="2" Header="登録用URL正規表現">
+                            <ListBox ItemsSource="{Binding BurpScopeRegexes}" SelectedItem="{Binding SelectedBurpScopeRegex}" FontFamily="Consolas" HorizontalContentAlignment="Stretch">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Padding="3" />
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </GroupBox>
+                        <Border Grid.Row="3" Background="{DynamicResource WarningBackground}" BorderBrush="{DynamicResource WarningBorder}" BorderThickness="1" Padding="12" CornerRadius="4">
+                            <StackPanel>
+                                <TextBlock Text="{Binding BurpHandoffStatus}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                <TextBlock Text="登録手順: BurpのTarget &gt; Scopeを開き、Include in scopeで追加します。コピーした値をURL regexへ貼り付け、Protocol・Host・Portが案件の許可Originと一致することを確認します。出力フォルダーには全候補の正規表現、代表URL、JSON証跡、TSV形式の診断作業表も保存されます。" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </TabItem>
+                <TabItem Header="データ管理" Tag="案件のバックアップと生成データの整理を行います。">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="案件データのバックアップと整理" FontSize="18" FontWeight="SemiBold" />
+                            <Border Grid.Row="1" Background="{DynamicResource InfoBackground}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" Padding="14" Margin="0,12,0,12" CornerRadius="4">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding DataSummaryText}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding LastBackupPath}" TextWrapping="Wrap" FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}" Margin="0,5,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <WrapPanel Grid.Row="2">
+                                <Button Content="容量を再集計" Command="{Binding RefreshDataSummaryCommand}" />
+                                <Button Content="案件をZIPバックアップ" Command="{Binding BackupProjectCommand}" Style="{StaticResource PrimaryActionButton}" />
+                                <Button Content="データフォルダーを開く" Command="{Binding OpenDataFolderCommand}" />
+                            </WrapPanel>
+                            <StackPanel Grid.Row="3" Margin="0,16,0,0">
+                                <GroupBox Header="データ整理">
+                                    <StackPanel>
+                                        <TextBlock Text="探索実行ごとの削除は、実行履歴で対象を選択して行えます。ここではBurp出力とレポートを整理します。" TextWrapping="Wrap" />
+                                        <WrapPanel>
+                                            <Button Content="Burp出力とレポートを削除" Click="DeleteGeneratedArtifacts_Click" Style="{StaticResource EditableButton}" />
+                                        </WrapPanel>
+                                        <TextBlock Text="削除前にZIPバックアップを作成すると、案件JSON、探索実行、Burp出力、レポートをまとめて保管できます。" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </GroupBox>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
+        </Grid>
+        <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="16,6">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="ログを表示" Tag="1" Click="Navigate_Click" MinHeight="28" Padding="8,2" Margin="12,0,0,0" />
+                <TextBlock Text="{Binding LatestLog}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" ToolTip="{Binding LatestLog}" />
+            </DockPanel>
+        </Border>
+    </Grid>
 </Window>

@@ -4,20 +4,72 @@ using ScopePilot.ViewModels;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace ScopePilot;
 
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel = new();
-    public MainWindow()
+    public MainWindow() : this(true) { }
+
+    // UI regression checks can instantiate the window without loading or changing user data.
+    internal MainWindow(bool initializeProject)
     {
         InitializeComponent();
+        Title = $"ScopePilot {typeof(MainWindow).Assembly.GetName().Version?.ToString(3)}";
         DataContext = _viewModel;
         SourceInitialized += (_, _) => ThemeService.Apply(this);
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
         Closed += (_, _) => SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
-        Loaded += async (_, _) => await _viewModel.InitializeAsync();
+        if (initializeProject) Loaded += async (_, _) => await _viewModel.InitializeAsync();
+        Navigation.SelectedIndex = 1;
+    }
+
+    private void Navigation_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (Workspace is not null && Navigation.SelectedItem is ListBoxItem { Tag: string tag } && int.TryParse(tag, out var index))
+            Workspace.SelectedIndex = index;
+    }
+
+    private void Navigate_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string tag }) NavigateTo(tag);
+    }
+
+    private void NavigateTo(string tag)
+    {
+        Navigation.SelectedItem = Navigation.Items.OfType<ListBoxItem>().FirstOrDefault(item => item.Tag?.ToString() == tag);
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control) return;
+        if (e.Key == Key.S && _viewModel.SaveCommand.CanExecute(null))
+        {
+            _viewModel.SaveCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.F)
+        {
+            NavigateTo("3");
+            Dispatcher.BeginInvoke(() => { CandidateSearchBox.Focus(); CandidateSearchBox.SelectAll(); });
+            e.Handled = true;
+        }
+    }
+
+    private async void CandidateSelection_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_viewModel.IsRunning && sender is CheckBox { DataContext: ScopePilot.Domain.DiagnosticCandidate candidate })
+            await _viewModel.SaveCandidateDecisionAsync(candidate);
+    }
+
+    private void ResetCandidateDecisions_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_viewModel.ResetCandidateDecisionsCommand.CanExecute(null)) return;
+        if (MessageBox.Show(this, "この案件の採用・除外の記録を解除し、観測済みの通信から再判定します。続行しますか？",
+            "候補の判断をリセット", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes)
+            _viewModel.ResetCandidateDecisionsCommand.Execute(null);
     }
 
     private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e) =>
@@ -25,6 +77,7 @@ public partial class MainWindow : Window
 
     private async void Import_Click(object sender, RoutedEventArgs e)
     {
+        if (_viewModel.IsRunning) return;
         var dialog = new OpenFileDialog
         {
             Title = "クローリング結果を取り込む",
@@ -76,9 +129,10 @@ public partial class MainWindow : Window
 
     private async void DeleteSelectedRun_Click(object sender, RoutedEventArgs e)
     {
+        if (_viewModel.IsRunning) return;
         if (_viewModel.SelectedRun is null)
         {
-            MessageBox.Show(this, "実行履歴タブで削除する探索実行を選択してください。", "ScopePilot", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, "実行履歴の一覧で削除する探索実行を選択してください。", "ScopePilot", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         var answer = MessageBox.Show(this,
@@ -89,6 +143,7 @@ public partial class MainWindow : Window
 
     private async void DeleteGeneratedArtifacts_Click(object sender, RoutedEventArgs e)
     {
+        if (_viewModel.IsRunning) return;
         var answer = MessageBox.Show(this,
             "現在の案件で生成したBurp出力とレポートを削除します。案件、観測通信、探索実行履歴は残ります。続行しますか？",
             "生成物の削除", MessageBoxButton.YesNo, MessageBoxImage.Warning);

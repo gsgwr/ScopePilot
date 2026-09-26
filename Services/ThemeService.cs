@@ -18,15 +18,15 @@ public static class ThemeService
         catch { return false; }
     }
 
-    public static void Apply(Window window)
+    public static void Apply(Window window, bool? darkOverride = null)
     {
-        var dark = IsDarkMode();
+        var dark = darkOverride ?? IsDarkMode();
         var colors = dark
             ? new Dictionary<string, string>
             {
-                ["WindowBackground"] = "#0F141A", ["Surface"] = "#171C24", ["ControlBackground"] = "#202833",
+                ["WindowBackground"] = "#17191D", ["Surface"] = "#202328", ["ControlBackground"] = "#2A2E34",
                 ["TextPrimary"] = "#E6EDF3", ["TextSecondary"] = "#AAB6C4", ["Border"] = "#34404D",
-                ["HeaderBackground"] = "#111827", ["FooterBackground"] = "#171C24", ["Primary"] = "#4D8DFF",
+                ["HeaderBackground"] = "#202328", ["FooterBackground"] = "#202328", ["Primary"] = "#245FBD",
                 ["Link"] = "#72A7FF", ["InfoBackground"] = "#15243B", ["InfoBorder"] = "#315A8C",
                 ["WarningBackground"] = "#332814", ["WarningBorder"] = "#9B762B", ["Success"] = "#237A57",
                 ["DisabledButtonBackground"] = "#27313B", ["DisabledButtonForeground"] = "#AAB6C4",
@@ -45,6 +45,16 @@ public static class ThemeService
 
         foreach (var (key, value) in colors)
             window.Resources[key] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));
+
+        if (SystemParameters.HighContrast)
+        {
+            foreach (var key in new[] { "WindowBackground", "Surface", "ControlBackground", "InfoBackground", "WarningBackground", "ConsoleBackground", "DisabledButtonBackground" })
+                window.Resources[key] = SystemColors.WindowBrush;
+            foreach (var key in new[] { "TextPrimary", "TextSecondary", "Border", "Link", "InfoBorder", "WarningBorder", "ConsoleForeground", "DisabledButtonForeground" })
+                window.Resources[key] = SystemColors.WindowTextBrush;
+            window.Resources["Selection"] = SystemColors.HighlightBrush;
+            window.Resources["Primary"] = SystemColors.HighlightBrush;
+        }
 
         if (new WindowInteropHelper(window).Handle is var handle && handle != IntPtr.Zero)
         {

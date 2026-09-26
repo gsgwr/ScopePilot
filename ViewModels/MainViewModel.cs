@@ -169,6 +169,7 @@ public sealed class MainViewModel : ObservableObject
     public string FindingSummary => $"診断所見: {Project.Findings.Count:N0}件";
     public string RunHistorySummary => $"探索実行履歴: {RunHistory.Count:N0}件";
     public string ConsoleText => string.Join(Environment.NewLine, Logs);
+    public string LatestLog => Logs.FirstOrDefault() ?? "案件を設定して探索を開始してください。";
 
     public async Task InitializeAsync()
     {
@@ -1008,6 +1009,6 @@ public sealed class MainViewModel : ObservableObject
             $"ページ {page:N0}/{maxPages:N0}、通信 {requests:N0}/{maxRequests:N0}");
     }
 
-    private void Log(string message) { Logs.Insert(0, $"{DateTime.Now:HH:mm:ss}  {message}"); while (Logs.Count > 500) Logs.RemoveAt(Logs.Count - 1); RaisePropertyChanged(nameof(ConsoleText)); }
+    private void Log(string message) { Logs.Insert(0, $"{DateTime.Now:HH:mm:ss}  {message}"); while (Logs.Count > 500) Logs.RemoveAt(Logs.Count - 1); RaisePropertyChanged(nameof(ConsoleText)); RaisePropertyChanged(nameof(LatestLog)); }
     private void RefreshSummary() { RaisePropertyChanged(nameof(StatusText)); RaisePropertyChanged(nameof(SummaryText)); RaisePropertyChanged(nameof(RequestSummary)); RaisePropertyChanged(nameof(CandidateSummary)); RaisePropertyChanged(nameof(FindingSummary)); RaisePropertyChanged(nameof(RunHistorySummary)); }
 }
