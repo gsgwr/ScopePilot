@@ -21,6 +21,7 @@ ScopePilotは、受託Web診断の事前探索と診断対象リクエストの�
 - 認証、権限、ファイル、外部連携、状態変更、API、AI機能、運用・クラウド機能などの初期分類
 - Codex、Node.js、Playwright MCP、Burp MCPの環境チェック
 - Codex探索ジョブの起動、実行ログ表示、停止
+- 環境確認・高速クロール・AI入力整理・Codex確認・結果取込の段階別進捗表示
 - Playwrightによる画面探索とBurp経由の通信観測
 - 高速GETクローラによるサイト全体のリンク巡回
 - `robots.txt`のSitemap指定と同一Originの`sitemap.xml`からのURL発見（既存の上限・禁止操作・許可Originを適用）

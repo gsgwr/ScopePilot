@@ -66,6 +66,7 @@
         <Style TargetType="DataGrid"><Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/><Setter Property="RowBackground" Value="{DynamicResource Surface}"/><Setter Property="AlternatingRowBackground" Value="{DynamicResource ControlBackground}"/><Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource Border}"/></Style>
         <Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="{DynamicResource ControlBackground}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/></Style>
         <Style TargetType="DataGridCell"><Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/></Style>
+        <Style TargetType="ProgressBar"><Setter Property="Height" Value="10"/><Setter Property="Background" Value="{DynamicResource ControlBackground}"/><Setter Property="Foreground" Value="{DynamicResource Primary}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/></Style>
     </Window.Resources>
     <DockPanel>
         <Border DockPanel.Dock="Top" Background="{DynamicResource HeaderBackground}" Padding="22,14">
@@ -124,14 +125,18 @@
             </TabItem>
             <TabItem Header="2  探索コンソール">
                 <Grid Margin="20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <Border Background="{DynamicResource InfoBackground}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" Padding="14" CornerRadius="4"><TextBlock TextWrapping="Wrap" Text="［AI探索を開始］を押すとCodexがPlaywrightで画面を巡回し、Burpで通信を観測します。MFAやCAPTCHAなど人の操作が必要な場合は同じブラウザを開いたまま待機します。"/></Border>
                     <WrapPanel Grid.Row="1" Margin="0,12,0,12"><Button Content="AI探索を開始" Command="{Binding StartExplorationCommand}" Style="{StaticResource PrimaryActionButton}"/><Button Content="探索を停止" Command="{Binding StopExplorationCommand}"/><Button Content="手動操作完了" Command="{Binding ResumeExplorationCommand}" Style="{StaticResource SuccessActionButton}"/><Button Content="探索パッケージのみ生成" Command="{Binding BuildExplorationPackageCommand}"/><Button Content="結果を取り込む" Click="Import_Click"/><Button Content="候補を再生成" Command="{Binding GenerateCandidatesCommand}"/><Button Content="Burp Scope出力" Command="{Binding ExportBurpScopeCommand}"/><Button Content="所見レポート出力" Command="{Binding ExportFindingsCommand}"/><Button Content="ログをすべてコピー" Click="CopyLog_Click"/></WrapPanel>
-                    <Border Grid.Row="2" Background="{DynamicResource WarningBackground}" BorderBrush="{DynamicResource WarningBorder}" BorderThickness="1" Padding="10" Margin="0,0,0,10" CornerRadius="4">
+                    <Border Grid.Row="2" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="10" Margin="0,0,0,10" CornerRadius="4"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding RunPhase}" FontWeight="SemiBold" Margin="0,0,12,5"/><TextBlock Grid.Column="1" Text="{Binding RunProgressDetail}" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Margin="0,0,12,5"/><TextBlock Grid.Column="2" Text="{Binding RunProgress, StringFormat={}{0}%}" FontWeight="SemiBold"/>
+                        <ProgressBar Grid.Row="1" Grid.ColumnSpan="3" Minimum="0" Maximum="100" Value="{Binding RunProgress, Mode=OneWay}"/>
+                    </Grid></Border>
+                    <Border Grid.Row="3" Background="{DynamicResource WarningBackground}" BorderBrush="{DynamicResource WarningBorder}" BorderThickness="1" Padding="10" Margin="0,0,0,10" CornerRadius="4">
                         <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding InterventionText}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Border.Style>
                         <TextBlock Text="{Binding InterventionText}" TextWrapping="Wrap"/>
                     </Border>
-                    <GroupBox Grid.Row="3" Header="実行ログ（テキストを選択して Ctrl+C でコピーできます）">
+                    <GroupBox Grid.Row="4" Header="実行ログ（テキストを選択して Ctrl+C でコピーできます）">
                         <TextBox Text="{Binding ConsoleText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" AcceptsTab="True"
                                  TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                                  FontFamily="Consolas" FontSize="13" Background="{DynamicResource ConsoleBackground}" Foreground="{DynamicResource ConsoleForeground}" Padding="10"

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using ScopePilot.Domain;
 using ScopePilot.Infrastructure;
 using ScopePilot.Services;
@@ -32,6 +33,9 @@ public sealed class MainViewModel : ObservableObject
     private ExplorationRunSummary? _selectedRun;
     private string _candidateSearch = string.Empty;
     private string _candidateReviewFilter = "すべて";
+    private string _runPhase = "待機中";
+    private string _runProgressDetail = "探索を開始すると進捗を表示します。";
+    private int _runProgress;
 
     public MainViewModel()
     {
@@ -134,6 +138,9 @@ public sealed class MainViewModel : ObservableObject
         set { if (SetProperty(ref _candidateSearch, value)) RefreshFilteredCandidates(); }
     }
     public string CandidateReviewFilter { get => _candidateReviewFilter; private set => SetProperty(ref _candidateReviewFilter, value); }
+    public string RunPhase { get => _runPhase; private set => SetProperty(ref _runPhase, value); }
+    public string RunProgressDetail { get => _runProgressDetail; private set => SetProperty(ref _runProgressDetail, value); }
+    public int RunProgress { get => _runProgress; private set => SetProperty(ref _runProgress, value); }
     public string FindingSummary => $"診断所見: {Project.Findings.Count:N0}件";
     public string RunHistorySummary => $"探索実行履歴: {RunHistory.Count:N0}件";
     public string ConsoleText => string.Join(Environment.NewLine, Logs);
@@ -453,6 +460,7 @@ public sealed class MainViewModel : ObservableObject
         var path = await BuildPackageAsync();
         if (path is null) return;
         await RefreshRunHistoryAsync();
+        SetRunProgress("準備済み", 100, "探索パッケージを生成しました。AI探索はまだ開始していません。");
         Log($"探索パッケージを生成しました: {path}");
         Log("パッケージは［AI探索を開始］から実行できます。");
     }
@@ -460,6 +468,7 @@ public sealed class MainViewModel : ObservableObject
     private async Task StartExplorationAsync()
     {
         UpdateRoleOptions();
+        SetRunProgress("環境確認", 2, "MCPと実行環境を確認しています。");
         Log($"探索対象ロール: {Project.ActiveRole}");
         Log("MCP設定を確認しています。");
         var setup = await _mcpSetup.ConfigureAsync();
@@ -467,6 +476,7 @@ public sealed class MainViewModel : ObservableObject
         if (!setup.Success)
         {
             Project.Status = ProjectStatus.Failed;
+            SetRunProgress("開始失敗", 0, "MCP設定を準備できませんでした。実行ログを確認してください。");
             RefreshSummary();
             Log("MCP設定を準備できないため探索を開始しませんでした。");
             return;
@@ -481,22 +491,25 @@ public sealed class MainViewModel : ObservableObject
         if (Project.MaxMinutes > 0) _runCancellation.CancelAfter(TimeSpan.FromMinutes(Project.MaxMinutes));
         IsRunning = true;
         Project.Status = ProjectStatus.Crawling;
+        SetRunProgress("高速クロール", 10, "開始URLから同一Originのリンクを巡回しています。");
         RefreshSummary();
         await _store.SaveAsync(Project);
 
         try
         {
-            var progress = new Progress<string>(Log);
+            var progress = new Progress<string>(message => { Log(message); UpdateProgressFromLog(message); });
             var crawl = await _fastCrawler.RunAsync(path, progress, _runCancellation.Token);
             if (crawl.Cancelled)
             {
                 Project.Status = ProjectStatus.Paused;
+                SetRunProgress("停止", RunProgress, "高速クロールを停止しました。");
                 Log("高速クローラを停止しました。");
                 return;
             }
             if (crawl.ProxyUnavailable)
             {
                 Project.Status = ProjectStatus.Failed;
+                SetRunProgress("接続失敗", 0, "Burp Proxyへ接続できませんでした。");
                 Log("Burp Proxy (127.0.0.1:8080) に接続できないため探索を開始できませんでした。Burp Suiteを起動し、Proxy > Proxy settings の Listener が有効であることを確認してから再実行してください。");
                 RefreshSummary();
                 return;
@@ -506,6 +519,7 @@ public sealed class MainViewModel : ObservableObject
             else
             {
                 Log("高速GETクロールが完了しました。アプリ側でAI対象を分類します。");
+                SetRunProgress("AI入力整理", 58, "静的通信を除外し、動的な代表パターンを作成しています。");
                 var aiInput = await _aiInputBuilder.BuildAsync(path);
                 Log($"AI事前分類: 通信{aiInput.TotalRequests:N0}件中、静的アセット・静的画面候補{aiInput.StaticExcluded:N0}件と除外キャッシュ{aiInput.DeferredExcluded:N0}件を対象外とし、採用済み・新規のリクエスト{aiInput.RequestPatternCount:N0}パターン・フォーム{aiInput.FormPatternCount:N0}パターンに集約しました。");
                 if (aiInput.TruncatedPatternCount > 0)
@@ -518,15 +532,18 @@ public sealed class MainViewModel : ObservableObject
                         await ImportAsync(fastObservations);
                     else
                         Project.Status = ProjectStatus.Ready;
+                    SetRunProgress("完了", 100, "AI確認が必要な動的パターンはありませんでした。");
                     return;
                 }
                 Log("動的な代表パターンだけをCodexへ渡して機能確認を開始します。");
+                SetRunProgress("Codex確認", 65, $"{aiInput.RequestPatternCount:N0}件の要求パターンと{aiInput.FormPatternCount:N0}件のフォームを確認しています。");
             }
 
             var result = await _runner.RunAsync(path, progress, OnInterventionDetected, _runCancellation.Token);
             if (!result.Cancelled && result.ExitCode == 0 && await IsTransportFailureAsync(result.ResultPath))
             {
                 Log("Playwright MCPの切断を検出しました。新しいMCPプロセスで探索を1回だけ自動再開します。");
+                SetRunProgress("Codex再接続", 70, "Playwright MCPを新しいプロセスで1回だけ再開しています。");
                 await File.AppendAllTextAsync(Path.Combine(path, "prompt.md"),
                     Environment.NewLine + "前回のPlaywright MCP接続が切断されたため、新しいMCPセッションでの再開です。ai-input.jsonと既存のexploration-summary.jsonを読み、未確認の代表パターンから続行し、最終結果ファイルを置き換えてください。" + Environment.NewLine,
                     _runCancellation.Token);
@@ -561,6 +578,7 @@ public sealed class MainViewModel : ObservableObject
                         || result.ExitCode != 0
                         ? "探索中に得られた部分的な観測リクエストを取り込みます。"
                         : "探索が完了しました。観測リクエストを取り込みます。");
+                    SetRunProgress("結果取込", 90, "観測通信と診断所見を案件へ取り込んでいます。");
                     foreach (var observationFile in observationFiles)
                         importedEvidenceCount += await ImportAsync(observationFile);
                 }
@@ -588,6 +606,7 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Project.Status = ProjectStatus.Failed;
+            SetRunProgress("実行失敗", RunProgress, "探索中に技術エラーが発生しました。実行ログを確認してください。");
             Log($"探索の起動または実行に失敗しました: {ex.Message}");
         }
         finally
@@ -598,6 +617,10 @@ public sealed class MainViewModel : ObservableObject
             ResumeExplorationCommand.RaiseCanExecuteChanged();
             RefreshSummary();
             await _store.SaveAsync(Project);
+            if (Project.Status is ProjectStatus.Ready or ProjectStatus.ReviewReady or ProjectStatus.Partial)
+                SetRunProgress("完了", 100, Project.Status == ProjectStatus.Partial ? "部分結果を保存しました。制約を確認してください。" : "探索結果を保存しました。");
+            else if (Project.Status == ProjectStatus.WaitingForHuman)
+                SetRunProgress("手動操作待ち", RunProgress, "ブラウザで必要な操作を完了し、［手動操作完了］を押してください。");
             try { await RefreshRunHistoryAsync(); }
             catch (Exception ex) { Log($"探索実行履歴を更新できませんでした: {ex.Message}"); }
         }
@@ -618,6 +641,7 @@ public sealed class MainViewModel : ObservableObject
     private void StopExploration()
     {
         Log("探索の停止を要求しました。");
+        SetRunProgress("停止要求", RunProgress, "現在の処理を安全に停止しています。");
         _runCancellation?.Cancel();
         _fastCrawler.Stop();
         _runner.Stop();
@@ -628,6 +652,7 @@ public sealed class MainViewModel : ObservableObject
         if (_currentRunDirectory is null) return;
         CodexExplorationRunner.Resume(_currentRunDirectory);
         Project.Status = ProjectStatus.Crawling;
+        SetRunProgress("探索再開", Math.Max(65, RunProgress), $"{Project.ActiveRole}として同じブラウザセッションで探索を再開しています。");
         InterventionText = string.Empty;
         ResumeExplorationCommand.RaiseCanExecuteChanged();
         RefreshSummary();
@@ -637,6 +662,7 @@ public sealed class MainViewModel : ObservableObject
     private void OnInterventionDetected(string detail)
     {
         Project.Status = ProjectStatus.WaitingForHuman;
+        SetRunProgress("手動操作待ち", Math.Max(65, RunProgress), "ブラウザで必要な操作を完了してください。");
         InterventionText = FormatIntervention(detail);
         ResumeExplorationCommand.RaiseCanExecuteChanged();
         RefreshSummary();
@@ -795,6 +821,26 @@ public sealed class MainViewModel : ObservableObject
         return Uri.TryCreate(url, UriKind.Absolute, out _)
             ? $"{method} {UrlPatternNormalizer.NormalizeForSelection(url)}"
             : value.Trim();
+    }
+
+    private void SetRunProgress(string phase, int percent, string detail)
+    {
+        RunPhase = phase;
+        RunProgress = Math.Clamp(percent, 0, 100);
+        RunProgressDetail = detail;
+    }
+
+    private void UpdateProgressFromLog(string message)
+    {
+        var match = Regex.Match(message, @"PAGE\s+(\d+)/(\d+)\s+REQUESTS\s+(\d+)/(\d+)", RegexOptions.IgnoreCase);
+        if (!match.Success) return;
+        var page = int.Parse(match.Groups[1].Value);
+        var maxPages = Math.Max(1, int.Parse(match.Groups[2].Value));
+        var requests = int.Parse(match.Groups[3].Value);
+        var maxRequests = Math.Max(1, int.Parse(match.Groups[4].Value));
+        var ratio = Math.Max((double)page / maxPages, (double)requests / maxRequests);
+        SetRunProgress("高速クロール", 10 + (int)Math.Round(Math.Min(1, ratio) * 45),
+            $"ページ {page:N0}/{maxPages:N0}、通信 {requests:N0}/{maxRequests:N0}");
     }
 
     private void Log(string message) { Logs.Insert(0, $"{DateTime.Now:HH:mm:ss}  {message}"); while (Logs.Count > 500) Logs.RemoveAt(Logs.Count - 1); RaisePropertyChanged(nameof(ConsoleText)); }
