@@ -23,6 +23,7 @@ public sealed class CodexExplorationRunner
         var schemaPath = Path.Combine(runDirectory, "result-schema.json");
         var resultPath = Path.Combine(runDirectory, "codex-result.json");
         var interventionPath = Path.Combine(runDirectory, "human-intervention.json");
+        var logPath = Path.Combine(runDirectory, "codex-run.log");
         var prompt = await File.ReadAllTextAsync(promptPath, cancellationToken);
 
         var startInfo = new ProcessStartInfo
@@ -54,13 +55,26 @@ public sealed class CodexExplorationRunner
         startInfo.Environment["HOME"] = profile;
         startInfo.Environment["USERPROFILE"] = profile;
 
+        await using var logFile = new FileStream(logPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+        await using var logWriter = new StreamWriter(logFile, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)) { AutoFlush = true };
+        var synchronizedLog = TextWriter.Synchronized(logWriter);
+        synchronizedLog.WriteLine($"[{DateTimeOffset.Now:O}] Codex CLI start: {codex}");
+
         using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Codex CLIを起動できませんでした。");
         _process = process;
         progress.Report($"Codex探索ジョブを開始しました (PID {process.Id})。");
 
         using var registration = cancellationToken.Register(() => TryStop(process));
-        var stdout = ReadLinesAsync(process.StandardOutput, line => ReportEvent(line, progress), cancellationToken);
-        var stderr = ReadLinesAsync(process.StandardError, line => progress.Report($"Codex: {line}"), cancellationToken);
+        var stdout = ReadLinesAsync(process.StandardOutput, line =>
+        {
+            synchronizedLog.WriteLine($"[stdout] {line}");
+            ReportEvent(line, progress);
+        }, cancellationToken);
+        var stderr = ReadLinesAsync(process.StandardError, line =>
+        {
+            synchronizedLog.WriteLine($"[stderr] {line}");
+            progress.Report($"Codex: {line}");
+        }, cancellationToken);
         var monitor = MonitorInterventionAsync(process, interventionPath, progress, interventionDetected, cancellationToken);
 
         var cancelled = false;
@@ -69,6 +83,7 @@ public sealed class CodexExplorationRunner
         finally { _process = null; }
 
         await Task.WhenAll(IgnoreCancellation(stdout), IgnoreCancellation(stderr), IgnoreCancellation(monitor));
+        synchronizedLog.WriteLine($"[{DateTimeOffset.Now:O}] Codex CLI exit: {process.ExitCode}; cancelled={cancelled}");
         return new(process.ExitCode, cancelled, File.Exists(interventionPath), resultPath);
     }
 
