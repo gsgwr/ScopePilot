@@ -201,16 +201,19 @@
                             <DataGridTextColumn Header="高速通信" Binding="{Binding FastRequestCount}" Width="80"/>
                             <DataGridTextColumn Header="AI観測" Binding="{Binding AiObservedCount}" Width="75"/>
                             <DataGridTextColumn Header="要求/フォーム" Binding="{Binding PatternCountDisplay}" Width="105"/>
+                            <DataGridTextColumn Header="前回差分 +/Δ/-" Binding="{Binding DiffCountDisplay}" Width="120"/>
                             <DataGridTextColumn Header="結果概要" Binding="{Binding Summary}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
                     <GroupBox Grid.Row="2" Header="選択した実行" Margin="0,10,0,0" Padding="10">
                         <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <TextBlock Text="{Binding SelectedRun.Summary}" TextWrapping="Wrap"/>
                             <TextBlock Grid.Row="1" Text="{Binding SelectedRun.Limitations}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,5,0,0"/>
-                            <TextBlock Grid.Row="2" Text="{Binding SelectedRun.Directory}" TextWrapping="Wrap" FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}" Margin="0,8,0,4"/>
-                            <WrapPanel Grid.Row="3">
+                            <TextBlock Grid.Row="2" Text="{Binding SelectedRun.DiffSummary}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,8,0,3"/>
+                            <ScrollViewer Grid.Row="3" MaxHeight="110" VerticalScrollBarVisibility="Auto"><TextBlock Text="{Binding SelectedRun.DiffDetails}" TextWrapping="Wrap" FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}"/></ScrollViewer>
+                            <TextBlock Grid.Row="4" Text="{Binding SelectedRun.Directory}" TextWrapping="Wrap" FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}" Margin="0,8,0,4"/>
+                            <WrapPanel Grid.Row="5">
                                 <Button Content="実行フォルダーを開く" Command="{Binding OpenRunFolderCommand}"/>
                                 <Button Content="実行ログ" Tag="codex-run.log" Click="RunArtifact_Click"/>
                                 <Button Content="AI入力" Tag="ai-input.json" Click="RunArtifact_Click"/>

@@ -37,6 +37,7 @@ ScopePilotは、受託Web診断の事前探索と診断対象リクエストの�
 - Codexに渡す `engagement.json`、`prompt.md`、`selection-guidance.md`、構造化出力スキーマの生成
 - `%LOCALAPPDATA%\ScopePilot` への案件・実行パッケージ保存
 - 案件ごとの探索実行履歴、結果概要・制約・通信数の一覧表示、実行成果物の参照と再試行
+- 直前の探索実行と比較した新規・応答変更・今回未観測のリクエストパターン差分
 - 探索コンソールの選択コピー、右クリックコピー、ログ全体コピー
 - Playwright MCPとPortSwigger MCP stdioプロキシのCodex登録
 
