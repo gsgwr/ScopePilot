@@ -43,10 +43,13 @@ jobs:
         run: dotnet test Tests/ScopePilot.Tests.csproj -c Release
 
       - name: Publish Windows package
-        run: dotnet publish ScopePilot.csproj -c Release -r win-x64 --self-contained true --no-restore -o publish
+        shell: powershell
+        run: ./scripts/Publish.ps1 -SkipTests
 
       - name: Upload publish artifact
         uses: actions/upload-artifact@v4
         with:
           name: ScopePilot-win-x64
-          path: publish
+          path: |
+            artifacts/ScopePilot-*-win-x64.zip
+            artifacts/ScopePilot-*-win-x64.zip.sha256

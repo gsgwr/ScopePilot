@@ -46,6 +46,7 @@ ScopePilotは、受託Web診断の事前探索と診断対象リクエストの�
 - 直前の探索実行と比較した新規・応答変更・今回未観測のリクエストパターン差分
 - 探索コンソールの選択コピー、右クリックコピー、ログ全体コピー
 - Playwright MCPとPortSwigger MCP stdioプロキシのCodex登録
+- バージョン付きWindows x64自己完結型ポータブルZIP、SHA-256、初回起動ガイドの自動生成
 
 高速クロールの全件ログは証跡として保存しますが、Codexには渡しません。ScopePilotが確認対象のリクエストとフォームをアプリ側で代表化し、最大200リクエストパターン・100フォームパターンの `ai-input.json` と短いガイドライン要約だけをCodexへ渡します。Codexは代表的な機能の確認と追加通信の収集を担当し、結果をScopePilotが候補へ変換します。リンク巡回に加えて、利用可能な`robots.txt`とサイトマップから同一OriginのURLを補完的に発見します。未確認HTMLを静的と断定せず、フォーム付き画面、認証・認可境界、API、エラー応答などを残します。選定は一次判定であり、脆弱性や安全性の判定ではありません。
 
@@ -80,6 +81,8 @@ dotnet run
 ```
 
 GitHub Actionsでも同じ手順でPlaywright MCPランタイムを復元し、win-x64の自己完結型配布物を成果物として生成します。
+
+配布ZIPは `powershell -ExecutionPolicy Bypass -File scripts/Publish.ps1` で生成します。自動テスト後、`artifacts` にWindows x64自己完結型ZIPとSHA-256ファイルを出力します。配布先での準備は [DISTRIBUTION.md](DISTRIBUTION.md) を参照してください。
 
 主要ロジックの自動テストは `dotnet test Tests/ScopePilot.Tests.csproj -c Release` で実行できます。URL代表化、認証ロール、AI入力除外、実行差分、Burp連携、案件レポート、バックアップを検証します。
 
