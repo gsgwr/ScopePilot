@@ -873,11 +873,12 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             var result = await _findingReport.ExportAsync(Project);
-            Log($"診断所見レポートを出力しました: {result.FindingCount:N0}件 / {result.Directory}");
+            Log($"案件レポートを出力しました: 採用候補{result.CandidateCount:N0}件、所見{result.FindingCount:N0}件 / {result.Directory}");
             Log($"JSON: {result.JsonPath}");
             Log($"HTML: {result.HtmlPath}");
+            Log($"候補作業表: {result.CandidateChecklistPath}");
         }
-        catch (Exception ex) { Log($"診断所見レポートの出力に失敗しました: {ex.Message}"); }
+        catch (Exception ex) { Log($"案件レポートの出力に失敗しました: {ex.Message}"); }
     }
 
     private void UpdateCandidateDecisionCache(DiagnosticCandidate candidate)

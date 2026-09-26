@@ -38,7 +38,7 @@ ScopePilotは、受託Web診断の事前探索と診断対象リクエストの�
 - 採用候補からBurp Suite Community Edition用のScope正規表現、代表URL、JSON証跡を出力
 - Community Edition向けにScope正規表現を20候補単位へ集約し、専用画面から順次コピーできる手動登録支援とTSV診断作業表を出力
 - Codexの探索結果から診断所見、深刻度、確信度、観測根拠、対象URL、制約を取り込み、案件へ保存
-- 診断所見のJSON/HTMLレポート出力
+- 所見が0件でも出力できる案件レポート（許可範囲、制約、探索カバレッジ、認証ロール、候補、選定理由、注意、所見、参照ガイドライン）のJSON/HTML/TSV出力
 - Codexに渡す `engagement.json`、`prompt.md`、`selection-guidance.md`、構造化出力スキーマの生成
 - `%LOCALAPPDATA%\ScopePilot` への案件・実行パッケージ保存
 - 案件ごとの探索実行履歴、結果概要・制約・通信数の一覧表示、実行成果物の参照と再試行
