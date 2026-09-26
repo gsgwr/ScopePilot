@@ -221,7 +221,9 @@ public sealed class AiInputBuilder
             var guidelines = root.TryGetProperty("guidelines", out var guidelineElement)
                 ? JsonSerializer.Deserialize<GuidelineSelectionOptions>(guidelineElement.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new GuidelineSelectionOptions()
                 : new GuidelineSelectionOptions();
-            var startUrl = root.TryGetProperty("startUrl", out var startUrlElement) && startUrlElement.ValueKind == JsonValueKind.String
+            var startUrlElement = root.EnumerateObject()
+                .FirstOrDefault(property => property.Name.Equals("startUrl", StringComparison.OrdinalIgnoreCase)).Value;
+            var startUrl = startUrlElement.ValueKind == JsonValueKind.String
                 ? startUrlElement.GetString() ?? string.Empty
                 : string.Empty;
             return (ReadPatterns(root, "adoptedCandidatePatterns"), ReadPatterns(root, "deferredCandidatePatterns"), guidelines, startUrl);
