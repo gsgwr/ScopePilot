@@ -4,7 +4,8 @@ using ScopePilot.Domain;
 
 namespace ScopePilot.Services;
 
-public sealed record BurpScopeExportResult(string Directory, string RegexPath, string UrlPath, string JsonPath, int SelectedCount);
+public sealed record BurpScopeExportResult(string Directory, string RegexPath, string CombinedRegexPath, string UrlPath,
+    string JsonPath, string ChecklistPath, int SelectedCount, string[] CombinedRegexes);
 
 public sealed class BurpScopeExportService
 {
@@ -19,14 +20,22 @@ public sealed class BurpScopeExportService
 
         var regexes = selected.Select(BuildScopeRegex).Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.Ordinal).ToArray();
+        var combinedRegexes = CombineRegexes(regexes);
         var urls = selected.Select(x => x.Representative.Url).Where(x => Uri.TryCreate(x, UriKind.Absolute, out _))
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var regexPath = Path.Combine(directory, "burp-scope-regex.txt");
+        var combinedRegexPath = Path.Combine(directory, "burp-scope-combined-regex.txt");
         var urlPath = Path.Combine(directory, "burp-scope-urls.txt");
         var jsonPath = Path.Combine(directory, "burp-scope.json");
+        var checklistPath = Path.Combine(directory, "diagnostic-checklist.tsv");
 
         await File.WriteAllLinesAsync(regexPath, regexes, new UTF8Encoding(false));
+        await File.WriteAllLinesAsync(combinedRegexPath, combinedRegexes, new UTF8Encoding(false));
         await File.WriteAllLinesAsync(urlPath, urls, new UTF8Encoding(false));
+        await File.WriteAllLinesAsync(checklistPath,
+            new[] { "Method\tURL\tRole\tCategory\tReason\tDiagnosticCaution" }.Concat(selected.Select(x => string.Join('\t',
+                Clean(x.Representative.Method), Clean(x.Representative.Url), Clean(x.Representative.Role), Clean(x.Category), Clean(x.Reason), Clean(x.DiagnosticCaution)))),
+            new UTF8Encoding(true));
         var manifest = new
         {
             generatedAt = DateTimeOffset.Now,
@@ -37,14 +46,14 @@ public sealed class BurpScopeExportService
             deferredCandidatePatterns = project.DeferredCandidatePatterns,
             limitations = new[]
             {
-                "Burp Suite Community EditionではScope設定の自動変更を行いません。burp-scope-regex.txtをBurpのTarget > Scopeへ手動登録してください。",
+                "Burp Suite Community EditionではScope設定の自動変更を行いません。burp-scope-combined-regex.txtをBurpのTarget > Scopeへ手動登録してください。",
                 "Scopeは通信を許可・遮断する機能ではなく、Burpの対象表示・対象機能を絞る設定です。実際の診断範囲は案件の許可Originと照合してください。"
             }
         };
         await File.WriteAllTextAsync(jsonPath, JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
         await File.WriteAllTextAsync(Path.Combine(directory, "README.txt"),
-            "Burp Suite Community Editionへの登録手順\r\n\r\n1. BurpのTarget > Scopeを開きます。\r\n2. Include in scopeのURL欄で、burp-scope-regex.txtの各行をURL regexとして追加します。\r\n3. 対象Originが案件の許可範囲と一致することを確認します。\r\n4. 除外した候補はこのScope出力には含めていません。\r\n\r\n代表URLはburp-scope-urls.txt、証跡と選定理由はburp-scope.jsonを参照してください。\r\n", new UTF8Encoding(false));
-        return new(directory, regexPath, urlPath, jsonPath, selected.Length);
+            "Burp Suite Community Editionへの登録手順\r\n\r\n1. BurpのTarget > Scopeを開きます。\r\n2. Include in scopeのURL欄で、burp-scope-combined-regex.txtの各行をURL regexとして追加します。\r\n3. 対象Originが案件の許可範囲と一致することを確認します。\r\n4. 除外した候補はこのScope出力には含めていません。\r\n\r\nScopePilotのBurp連携タブでは、まとめた正規表現を順番にコピーできます。代表URLはburp-scope-urls.txt、診断作業表はdiagnostic-checklist.tsv、証跡と選定理由はburp-scope.jsonを参照してください。\r\n", new UTF8Encoding(false));
+        return new(directory, regexPath, combinedRegexPath, urlPath, jsonPath, checklistPath, selected.Length, combinedRegexes);
     }
 
     private static string BuildScopeRegex(DiagnosticCandidate candidate)
@@ -74,4 +83,14 @@ public sealed class BurpScopeExportService
         .Replace("\\{date\\}", "[^/?#]+", StringComparison.OrdinalIgnoreCase)
         .Replace("\\{id\\}", "[^/?#]+", StringComparison.OrdinalIgnoreCase)
         .Replace("\\{value\\}", "[^/?#]+", StringComparison.OrdinalIgnoreCase);
+
+    private static string[] CombineRegexes(string[] regexes)
+    {
+        const int chunkSize = 20;
+        return regexes.Chunk(chunkSize)
+            .Select(chunk => "(?:" + string.Join('|', chunk.Select(x => "(?:" + x + ")")) + ")")
+            .ToArray();
+    }
+
+    private static string Clean(string value) => value.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
 }

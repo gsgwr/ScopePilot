@@ -243,6 +243,18 @@
                     </GroupBox>
                 </Grid>
             </TabItem>
+            <TabItem Header="7  Burp連携">
+                <Grid Margin="20">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Border Background="{DynamicResource InfoBackground}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" Padding="14" CornerRadius="4"><TextBlock TextWrapping="Wrap" Text="Burp Suite Community EditionではScopeを自動変更できないため、採用候補を少数のURL正規表現へ集約して手動登録します。案件の許可Originと一致することを確認してから追加してください。"/></Border>
+                    <WrapPanel Grid.Row="1" Margin="0,12,0,8"><Button Content="Scope出力を生成" Command="{Binding ExportBurpScopeCommand}" Style="{StaticResource PrimaryActionButton}"/><Button Content="次をコピー" Command="{Binding CopyNextBurpRegexCommand}"/><Button Content="出力フォルダーを開く" Command="{Binding OpenBurpExportFolderCommand}"/></WrapPanel>
+                    <GroupBox Grid.Row="2" Header="登録用URL正規表現"><ListBox ItemsSource="{Binding BurpScopeRegexes}" SelectedItem="{Binding SelectedBurpScopeRegex}" FontFamily="Consolas" HorizontalContentAlignment="Stretch"><ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Padding="3"/></DataTemplate></ListBox.ItemTemplate></ListBox></GroupBox>
+                    <Border Grid.Row="3" Background="{DynamicResource WarningBackground}" BorderBrush="{DynamicResource WarningBorder}" BorderThickness="1" Padding="12" CornerRadius="4"><StackPanel>
+                        <TextBlock Text="{Binding BurpHandoffStatus}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                        <TextBlock Text="登録手順: BurpのTarget > Scopeを開き、Include in scopeで追加します。コピーした値をURL regexへ貼り付け、Protocol・Host・Portが案件の許可Originと一致することを確認します。出力フォルダーには全候補の正規表現、代表URL、JSON証跡、TSV形式の診断作業表も保存されます。" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    </StackPanel></Border>
+                </Grid>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

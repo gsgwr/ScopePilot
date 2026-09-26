@@ -37,6 +37,10 @@ public sealed class MainViewModel : ObservableObject
     private string _runPhase = "待機中";
     private string _runProgressDetail = "探索を開始すると進捗を表示します。";
     private int _runProgress;
+    private string? _lastBurpExportDirectory;
+    private string? _selectedBurpScopeRegex;
+    private string _burpHandoffStatus = "Burp Scope出力を生成すると、登録用の正規表現をここで案内します。";
+    private int _nextBurpRegexIndex;
 
     public MainViewModel()
     {
@@ -59,6 +63,8 @@ public sealed class MainViewModel : ObservableObject
         AdoptVisibleCandidatesCommand = new AsyncRelayCommand(() => SetVisibleCandidateDecisionAsync(true), () => !IsRunning && FilteredCandidates.Count > 0);
         ExcludeVisibleCandidatesCommand = new AsyncRelayCommand(() => SetVisibleCandidateDecisionAsync(false), () => !IsRunning && FilteredCandidates.Count > 0);
         ExportBurpScopeCommand = new AsyncRelayCommand(ExportBurpScopeAsync, () => !IsRunning);
+        OpenBurpExportFolderCommand = new RelayCommand(OpenBurpExportFolder, () => !string.IsNullOrWhiteSpace(LastBurpExportDirectory));
+        CopyNextBurpRegexCommand = new RelayCommand(CopyNextBurpRegex, () => BurpScopeRegexes.Count > 0);
         ExportFindingsCommand = new AsyncRelayCommand(ExportFindingsAsync, () => !IsRunning);
     }
 
@@ -68,6 +74,7 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<ExplorationRunSummary> RunHistory { get; } = [];
     public ObservableCollection<string> RoleOptions { get; } = [];
     public ObservableCollection<DiagnosticCandidate> FilteredCandidates { get; } = [];
+    public ObservableCollection<string> BurpScopeRegexes { get; } = [];
     public AsyncRelayCommand SaveCommand { get; }
     public AsyncRelayCommand NewProjectCommand { get; }
     public AsyncRelayCommand LoadProjectCommand { get; }
@@ -87,6 +94,8 @@ public sealed class MainViewModel : ObservableObject
     public AsyncRelayCommand AdoptVisibleCandidatesCommand { get; }
     public AsyncRelayCommand ExcludeVisibleCandidatesCommand { get; }
     public AsyncRelayCommand ExportBurpScopeCommand { get; }
+    public RelayCommand OpenBurpExportFolderCommand { get; }
+    public RelayCommand CopyNextBurpRegexCommand { get; }
     public AsyncRelayCommand ExportFindingsCommand { get; }
     public bool IsRunning
     {
@@ -142,6 +151,9 @@ public sealed class MainViewModel : ObservableObject
     public string RunPhase { get => _runPhase; private set => SetProperty(ref _runPhase, value); }
     public string RunProgressDetail { get => _runProgressDetail; private set => SetProperty(ref _runProgressDetail, value); }
     public int RunProgress { get => _runProgress; private set => SetProperty(ref _runProgress, value); }
+    public string? LastBurpExportDirectory { get => _lastBurpExportDirectory; private set { if (SetProperty(ref _lastBurpExportDirectory, value)) OpenBurpExportFolderCommand.RaiseCanExecuteChanged(); } }
+    public string? SelectedBurpScopeRegex { get => _selectedBurpScopeRegex; set => SetProperty(ref _selectedBurpScopeRegex, value); }
+    public string BurpHandoffStatus { get => _burpHandoffStatus; private set => SetProperty(ref _burpHandoffStatus, value); }
     public string FindingSummary => $"診断所見: {Project.Findings.Count:N0}件";
     public string RunHistorySummary => $"探索実行履歴: {RunHistory.Count:N0}件";
     public string ConsoleText => string.Join(Environment.NewLine, Logs);
@@ -303,6 +315,7 @@ public sealed class MainViewModel : ObservableObject
             UpdateRoleOptions();
             CandidateSearch = string.Empty;
             SetCandidateReviewFilter("すべて");
+            ResetBurpHandoff();
             _currentRunDirectory = null;
             InterventionText = string.Empty;
             SelectedCandidate = null;
@@ -336,6 +349,7 @@ public sealed class MainViewModel : ObservableObject
             UpdateRoleOptions();
             CandidateSearch = string.Empty;
             SetCandidateReviewFilter("すべて");
+            ResetBurpHandoff();
             _currentRunDirectory = null;
             InterventionText = string.Empty;
             SelectedCandidate = null;
@@ -811,10 +825,47 @@ public sealed class MainViewModel : ObservableObject
         {
             var result = await _burpScopeExport.ExportAsync(Project);
             await _store.SaveAsync(Project);
+            BurpScopeRegexes.Clear();
+            foreach (var regex in result.CombinedRegexes) BurpScopeRegexes.Add(regex);
+            LastBurpExportDirectory = result.Directory;
+            _nextBurpRegexIndex = 0;
+            SelectedBurpScopeRegex = BurpScopeRegexes.FirstOrDefault();
+            BurpHandoffStatus = $"採用{result.SelectedCount:N0}候補を{result.CombinedRegexes.Length:N0}個の登録用正規表現へ集約しました。［次をコピー］からBurpへ順番に登録してください。";
+            CopyNextBurpRegexCommand.RaiseCanExecuteChanged();
             Log($"Burp Scope出力を生成しました: 採用{result.SelectedCount:N0}件 / {result.Directory}");
-            Log("Community EditionではBurpのTarget > Scopeへburp-scope-regex.txtを手動登録してください。");
+            Log($"Community EditionではBurpのTarget > Scopeへburp-scope-combined-regex.txtの{result.CombinedRegexes.Length:N0}行を手動登録してください。");
         }
         catch (Exception ex) { Log($"Burp Scope出力に失敗しました: {ex.Message}"); }
+    }
+
+    private void CopyNextBurpRegex()
+    {
+        if (BurpScopeRegexes.Count == 0) return;
+        var index = Math.Clamp(_nextBurpRegexIndex, 0, BurpScopeRegexes.Count - 1);
+        var regex = BurpScopeRegexes[index];
+        try
+        {
+            System.Windows.Clipboard.SetText(regex);
+            SelectedBurpScopeRegex = regex;
+            BurpHandoffStatus = $"{index + 1:N0}/{BurpScopeRegexes.Count:N0} をコピーしました。BurpのTarget > Scope > Include in scopeでURL regexとして追加してください。";
+            _nextBurpRegexIndex = (index + 1) % BurpScopeRegexes.Count;
+        }
+        catch (Exception ex) { Log($"正規表現をクリップボードへコピーできませんでした: {ex.Message}"); }
+    }
+
+    private void OpenBurpExportFolder()
+    {
+        if (!string.IsNullOrWhiteSpace(LastBurpExportDirectory)) OpenRunPath(LastBurpExportDirectory, "Burp連携フォルダー");
+    }
+
+    private void ResetBurpHandoff()
+    {
+        BurpScopeRegexes.Clear();
+        LastBurpExportDirectory = null;
+        SelectedBurpScopeRegex = null;
+        _nextBurpRegexIndex = 0;
+        BurpHandoffStatus = "Burp Scope出力を生成すると、登録用の正規表現をここで案内します。";
+        CopyNextBurpRegexCommand.RaiseCanExecuteChanged();
     }
 
     private async Task ExportFindingsAsync()
