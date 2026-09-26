@@ -118,7 +118,7 @@
                 <Grid Margin="20">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <Border Background="{DynamicResource InfoBackground}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" Padding="14" CornerRadius="4"><TextBlock TextWrapping="Wrap" Text="［AI探索を開始］を押すとCodexがPlaywrightで画面を巡回し、Burpで通信を観測します。MFAやCAPTCHAなど人の操作が必要な場合は同じブラウザを開いたまま待機します。"/></Border>
-                    <WrapPanel Grid.Row="1" Margin="0,12,0,12"><Button Content="AI探索を開始" Command="{Binding StartExplorationCommand}" Style="{StaticResource PrimaryActionButton}"/><Button Content="探索を停止" Command="{Binding StopExplorationCommand}"/><Button Content="手動操作完了" Command="{Binding ResumeExplorationCommand}" Style="{StaticResource SuccessActionButton}"/><Button Content="探索パッケージのみ生成" Command="{Binding BuildExplorationPackageCommand}"/><Button Content="結果を取り込む" Click="Import_Click"/><Button Content="候補を再生成" Command="{Binding GenerateCandidatesCommand}"/><Button Content="Burp Scope出力" Command="{Binding ExportBurpScopeCommand}"/><Button Content="ログをすべてコピー" Click="CopyLog_Click"/></WrapPanel>
+                    <WrapPanel Grid.Row="1" Margin="0,12,0,12"><Button Content="AI探索を開始" Command="{Binding StartExplorationCommand}" Style="{StaticResource PrimaryActionButton}"/><Button Content="探索を停止" Command="{Binding StopExplorationCommand}"/><Button Content="手動操作完了" Command="{Binding ResumeExplorationCommand}" Style="{StaticResource SuccessActionButton}"/><Button Content="探索パッケージのみ生成" Command="{Binding BuildExplorationPackageCommand}"/><Button Content="結果を取り込む" Click="Import_Click"/><Button Content="候補を再生成" Command="{Binding GenerateCandidatesCommand}"/><Button Content="Burp Scope出力" Command="{Binding ExportBurpScopeCommand}"/><Button Content="所見レポート出力" Command="{Binding ExportFindingsCommand}"/><Button Content="ログをすべてコピー" Click="CopyLog_Click"/></WrapPanel>
                     <Border Grid.Row="2" Background="{DynamicResource WarningBackground}" BorderBrush="{DynamicResource WarningBorder}" BorderThickness="1" Padding="10" Margin="0,0,0,10" CornerRadius="4">
                         <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding InterventionText}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Border.Style>
                         <TextBlock Text="{Binding InterventionText}" TextWrapping="Wrap"/>
@@ -161,6 +161,24 @@
                         </StackPanel>
                     </GroupBox>
                     <TextBlock Grid.Row="3" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Text="チェックを外した候補は除外キャッシュへ保存し、次回はCodexの確認対象から外します。採用済み候補と新規発見パターンは次回の対象です。候補を再採用するとキャッシュから外れます。高速クローラは新規URLを見つけるため次回も巡回します。"/>
+                </Grid>
+            </TabItem>
+            <TabItem Header="5  診断所見">
+                <Grid Margin="20">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock Text="{Binding FindingSummary}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding Project.Findings}" SelectedItem="{Binding SelectedFinding}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"><DataGrid.Columns>
+                        <DataGridTextColumn Header="深刻度" Binding="{Binding Severity}" Width="75"/><DataGridTextColumn Header="確信度" Binding="{Binding Confidence}" Width="70"/><DataGridTextColumn Header="分類" Binding="{Binding Category}" Width="130"/><DataGridTextColumn Header="状態" Binding="{Binding Status}" Width="90"/><DataGridTextColumn Header="タイトル" Binding="{Binding Title}" Width="2*"/><DataGridTextColumn Header="対象URL" Binding="{Binding AffectedUrls}" Width="2*"/>
+                    </DataGrid.Columns></DataGrid>
+                    <GroupBox Grid.Row="2" Header="選択した所見の証跡" Margin="0,10,0,0" Padding="10">
+                        <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto"><StackPanel>
+                            <TextBlock Text="{Binding SelectedFinding.Description}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <TextBlock Text="観測根拠" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedFinding.Evidence}" TextWrapping="Wrap" FontFamily="Consolas" Margin="0,3,0,8"/>
+                            <TextBlock Text="対象URL" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedFinding.AffectedUrls}" TextWrapping="Wrap" Margin="0,3,0,8"/>
+                            <TextBlock Text="参照基準" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedFinding.GuidelineBasis}" TextWrapping="Wrap" Margin="0,3,0,8"/>
+                            <TextBlock Text="制約・未確認事項" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedFinding.Limitations}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                        </StackPanel></ScrollViewer>
+                    </GroupBox>
                 </Grid>
             </TabItem>
         </TabControl>

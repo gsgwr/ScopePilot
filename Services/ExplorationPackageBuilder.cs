@@ -47,7 +47,31 @@ public sealed class ExplorationPackageBuilder
                 status = new { type = "string", @enum = new[] { "completed", "partial", "failed" } },
                 summary = new { type = "string" },
                 observedRequestCount = new { type = "integer" },
-                limitations = new { type = "array", items = new { type = "string" } }
+                limitations = new { type = "array", items = new { type = "string" } },
+                findings = new
+                {
+                    type = "array",
+                    items = new
+                    {
+                        type = "object",
+                        additionalProperties = false,
+                        properties = new
+                        {
+                            id = new { type = "string" },
+                            title = new { type = "string" },
+                            severity = new { type = "string", @enum = new[] { "未評価", "情報", "低", "中", "高", "重大" } },
+                            confidence = new { type = "string", @enum = new[] { "低", "中", "高" } },
+                            category = new { type = "string" },
+                            status = new { type = "string" },
+                            description = new { type = "string" },
+                            evidence = new { type = "string" },
+                            affectedUrls = new { type = "array", items = new { type = "string" } },
+                            guidelineBasis = new { type = "array", items = new { type = "string" } },
+                            limitations = new { type = "array", items = new { type = "string" } }
+                        },
+                        required = new[] { "title", "severity", "confidence", "category", "status", "description", "evidence", "affectedUrls", "guidelineBasis", "limitations" }
+                    }
+                }
             },
             required = new[] { "status", "summary", "observedRequestCount", "limitations" }
         };
@@ -73,6 +97,7 @@ public sealed class ExplorationPackageBuilder
             .AppendLine("手動操作が必要な場合は human-intervention.json に reason, page, instruction, resumeCondition をJSONで直ちに出力し、ブラウザを閉じずに待機してください。")
             .AppendLine("ScopePilotが同じディレクトリに resume.signal を作成するまで5秒間隔で確認してください。確認後はresume.signalとhuman-intervention.jsonを削除し、現在のブラウザセッションで探索を再開してください。")
             .AppendLine("完了時はAI確認で新たに観測した通信だけを ai-observed-requests.jsonl に出力し、exploration-summary.jsonもこのディレクトリへ出力してください。")
+            .AppendLine("codex-result.jsonには、確認できた診断上の所見をfindings配列へ出力してください。各所見はtitle、severity（未評価/情報/低/中/高/重大）、confidence（低/中/高）、category、status、description、evidence、affectedUrls、guidelineBasis、limitationsを必ず含めてください。脆弱性を確定できない場合はstatusを要確認または観測にし、証拠がない断定や推測を所見として出力しないでください。")
             .AppendLine("fast-observed-requests.jsonlとobserved-requests.jsonlは高速クローラの原本です。変更・削除・上書きしないでください。")
             .AppendLine("ai-observed-requests.jsonlは1行1JSONとし、各行に method, url, statusCode, contentType, source, role, pageTitle, observedAt を含めてください。同じmethodとurlは重複させないでください。")
             .AppendLine("探索は速度とトークン節約を優先し、ai-input.jsonの各代表URLだけをbrowser_navigateで安全に確認してください。snapshotは機能や入力要素の判断が必要な代表ページに限り、リンク一覧の収集や全ページ巡回は行わないでください。")

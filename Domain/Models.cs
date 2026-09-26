@@ -34,6 +34,7 @@ public sealed class EngagementProject
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
     public ObservableCollection<ObservedRequest> Requests { get; set; } = [];
     public ObservableCollection<DiagnosticCandidate> Candidates { get; set; } = [];
+    public ObservableCollection<DiagnosticFinding> Findings { get; set; } = [];
     public ObservableCollection<string> AdoptedCandidatePatterns { get; set; } = [];
     public ObservableCollection<string> DeferredCandidatePatterns { get; set; } = [];
 }
@@ -102,6 +103,23 @@ public sealed class DiagnosticCandidate : INotifyPropertyChanged
     public ObservedRequest Representative { get; set; } = new();
 
     private void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+}
+
+public sealed class DiagnosticFinding
+{
+    public string FindingId { get; set; } = Guid.NewGuid().ToString("N");
+    public string Title { get; set; } = string.Empty;
+    public string Severity { get; set; } = "未評価";
+    public string Confidence { get; set; } = "中";
+    public string Category { get; set; } = "その他";
+    public string Status { get; set; } = "要確認";
+    public string Description { get; set; } = string.Empty;
+    public string Evidence { get; set; } = string.Empty;
+    public string AffectedUrls { get; set; } = string.Empty;
+    public string GuidelineBasis { get; set; } = string.Empty;
+    public string Limitations { get; set; } = string.Empty;
+    public string SourceRunDirectory { get; set; } = string.Empty;
+    public DateTimeOffset ObservedAt { get; set; } = DateTimeOffset.Now;
 }
 
 public sealed record EnvironmentCheck(string Name, bool Available, string Detail);

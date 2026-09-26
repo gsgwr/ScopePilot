@@ -17,12 +17,15 @@ public sealed class MainViewModel : ObservableObject
     private readonly FastCrawlerRunner _fastCrawler = new();
     private readonly AiInputBuilder _aiInputBuilder = new();
     private readonly BurpScopeExportService _burpScopeExport = new();
+    private readonly CodexFindingImporter _findingImporter = new();
+    private readonly FindingReportService _findingReport = new();
     private EngagementProject _project = new();
     private CancellationTokenSource? _runCancellation;
     private string? _currentRunDirectory;
     private bool _isRunning;
     private string _interventionText = string.Empty;
     private DiagnosticCandidate? _selectedCandidate;
+    private DiagnosticFinding? _selectedFinding;
 
     public MainViewModel()
     {
@@ -36,6 +39,7 @@ public sealed class MainViewModel : ObservableObject
         ResumeExplorationCommand = new RelayCommand(ResumeExploration, () => IsRunning && Project.Status == ProjectStatus.WaitingForHuman);
         GenerateCandidatesCommand = new RelayCommand(GenerateCandidates);
         ExportBurpScopeCommand = new AsyncRelayCommand(ExportBurpScopeAsync, () => !IsRunning);
+        ExportFindingsCommand = new AsyncRelayCommand(ExportFindingsAsync, () => !IsRunning);
     }
 
     public EngagementProject Project { get => _project; private set { if (SetProperty(ref _project, value)) RefreshSummary(); } }
@@ -50,6 +54,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand ResumeExplorationCommand { get; }
     public RelayCommand GenerateCandidatesCommand { get; }
     public AsyncRelayCommand ExportBurpScopeCommand { get; }
+    public AsyncRelayCommand ExportFindingsCommand { get; }
     public bool IsRunning
     {
         get => _isRunning;
@@ -61,14 +66,17 @@ public sealed class MainViewModel : ObservableObject
             StopExplorationCommand.RaiseCanExecuteChanged();
             ResumeExplorationCommand.RaiseCanExecuteChanged();
             ExportBurpScopeCommand.RaiseCanExecuteChanged();
+            ExportFindingsCommand.RaiseCanExecuteChanged();
         }
     }
     public string InterventionText { get => _interventionText; private set => SetProperty(ref _interventionText, value); }
     public DiagnosticCandidate? SelectedCandidate { get => _selectedCandidate; set => SetProperty(ref _selectedCandidate, value); }
+    public DiagnosticFinding? SelectedFinding { get => _selectedFinding; set => SetProperty(ref _selectedFinding, value); }
     public string StatusText => Project.Status switch { ProjectStatus.Draft => "設定中", ProjectStatus.Ready => "準備完了", ProjectStatus.Crawling => "探索中", ProjectStatus.WaitingForHuman => "手動操作待ち", ProjectStatus.Organizing => "整理中", ProjectStatus.ReviewReady => "確認可能", ProjectStatus.Partial => "部分結果", ProjectStatus.Paused => "一時停止", _ => "失敗" };
     public string SummaryText => $"{Project.Name}  |  観測 {Project.Requests.Count:N0}件  |  候補 {Project.Candidates.Count(x => x.Selected):N0}件";
     public string RequestSummary => $"観測した通信: {Project.Requests.Count:N0}件";
     public string CandidateSummary => $"代表化した候補: {Project.Candidates.Count:N0}件（採用 {Project.Candidates.Count(x => x.Selected):N0}件／除外キャッシュ {Project.DeferredCandidatePatterns.Count:N0}件）";
+    public string FindingSummary => $"診断所見: {Project.Findings.Count:N0}件";
     public string ConsoleText => string.Join(Environment.NewLine, Logs);
 
     public async Task InitializeAsync()
@@ -77,6 +85,7 @@ public sealed class MainViewModel : ObservableObject
         {
             Project = await _store.LoadLatestAsync() ?? new EngagementProject();
             Project.Guidelines ??= new GuidelineSelectionOptions();
+            Project.Findings ??= [];
             Log(Project.CreatedAt == Project.UpdatedAt ? "新規案件を開始しました。" : "直近の案件を復元しました。");
             if (Project.Requests.Count > 0)
             {
@@ -149,6 +158,7 @@ public sealed class MainViewModel : ObservableObject
             _currentRunDirectory = null;
             InterventionText = string.Empty;
             SelectedCandidate = null;
+            SelectedFinding = null;
             Logs.Clear();
             RaisePropertyChanged(nameof(ConsoleText));
             await _store.SaveAsync(Project);
@@ -366,6 +376,21 @@ public sealed class MainViewModel : ObservableObject
         {
             using var result = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(resultPath));
             if (result.RootElement.TryGetProperty("summary", out var summary)) Log($"探索結果: {summary.GetString()}");
+            var imported = await _findingImporter.ImportAsync(resultPath, _currentRunDirectory ?? string.Empty);
+            if (imported.Count > 0)
+            {
+                foreach (var finding in imported)
+                {
+                    var fingerprint = CodexFindingImporter.Fingerprint(finding);
+                    var existing = Project.Findings.FirstOrDefault(item => CodexFindingImporter.Fingerprint(item) == fingerprint);
+                    if (existing is not null) Project.Findings.Remove(existing);
+                    Project.Findings.Add(finding);
+                }
+                Log($"Codex所見を{imported.Count:N0}件取り込みました。深刻度・根拠・制約を確認してください。");
+                RefreshSummary();
+            }
+            else if (result.RootElement.TryGetProperty("findings", out _))
+                Log("Codex結果に取り込み可能な診断所見はありませんでした。");
             return result.RootElement.TryGetProperty("status", out var status) ? status.GetString() : null;
         }
         catch { Log($"Codex結果ファイル: {resultPath}"); return null; }
@@ -445,6 +470,18 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception ex) { Log($"Burp Scope出力に失敗しました: {ex.Message}"); }
     }
 
+    private async Task ExportFindingsAsync()
+    {
+        try
+        {
+            var result = await _findingReport.ExportAsync(Project);
+            Log($"診断所見レポートを出力しました: {result.FindingCount:N0}件 / {result.Directory}");
+            Log($"JSON: {result.JsonPath}");
+            Log($"HTML: {result.HtmlPath}");
+        }
+        catch (Exception ex) { Log($"診断所見レポートの出力に失敗しました: {ex.Message}"); }
+    }
+
     private void SyncCandidateDecisionCache()
     {
         var adopted = Project.AdoptedCandidatePatterns.Select(NormalizeCandidatePattern)
@@ -475,5 +512,5 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private void Log(string message) { Logs.Insert(0, $"{DateTime.Now:HH:mm:ss}  {message}"); while (Logs.Count > 500) Logs.RemoveAt(Logs.Count - 1); RaisePropertyChanged(nameof(ConsoleText)); }
-    private void RefreshSummary() { RaisePropertyChanged(nameof(StatusText)); RaisePropertyChanged(nameof(SummaryText)); RaisePropertyChanged(nameof(RequestSummary)); RaisePropertyChanged(nameof(CandidateSummary)); }
+    private void RefreshSummary() { RaisePropertyChanged(nameof(StatusText)); RaisePropertyChanged(nameof(SummaryText)); RaisePropertyChanged(nameof(RequestSummary)); RaisePropertyChanged(nameof(CandidateSummary)); RaisePropertyChanged(nameof(FindingSummary)); }
 }
