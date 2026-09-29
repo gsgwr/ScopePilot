@@ -1,16 +1,20 @@
 param(
-    [string]$Version = "0.11.1",
+    [string]$Version,
+    [ValidateSet('win-x64', 'win-arm64')]
+    [string]$Runtime = 'win-x64',
     [switch]$SkipTests
 )
 
 $ErrorActionPreference = "Stop"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+if (-not $Version) { $Version = ([xml](Get-Content -LiteralPath (Join-Path $projectRoot 'ScopePilot.csproj'))).Project.PropertyGroup.Version }
+if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Version must contain major.minor.patch only.' }
 $artifactsRoot = Join-Path $projectRoot "artifacts"
-$packageName = "ScopePilot-$Version-win-x64"
+$packageName = "ScopePilot-$Version-$Runtime"
 $publishDirectory = Join-Path $artifactsRoot $packageName
 $zipPath = Join-Path $artifactsRoot "$packageName.zip"
 
-if (-not $publishDirectory.StartsWith($artifactsRoot, [StringComparison]::OrdinalIgnoreCase)) {
+if (-not ([IO.Path]::GetFullPath($publishDirectory)).StartsWith($artifactsRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
     throw "Publish output must stay inside the artifacts directory."
 }
 
@@ -23,7 +27,7 @@ if (Test-Path -LiteralPath $publishDirectory) { Remove-Item -LiteralPath $publis
 if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
 New-Item -ItemType Directory -Path $artifactsRoot -Force | Out-Null
 
-& dotnet publish (Join-Path $projectRoot "ScopePilot.csproj") -c Release -r win-x64 --self-contained true `
+& dotnet publish (Join-Path $projectRoot "ScopePilot.csproj") -c Release -r $Runtime --self-contained true `
     -p:Version=$Version -p:AssemblyVersion="$Version.0" -p:FileVersion="$Version.0" -o $publishDirectory
 if ($LASTEXITCODE -ne 0) { throw "Windows publish failed." }
 

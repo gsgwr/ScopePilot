@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace ScopePilot.Services;
 
@@ -30,11 +31,11 @@ public sealed class McpSetupService
             [node, playwrightCli, "--browser", "msedge", "--proxy-server", "http://127.0.0.1:8080",
                 "--ignore-https-errors", "--timeout-action", "15000", "--timeout-navigation", "90000",
                 "--timeout-settle", "1000", "--output-dir", playwrightOutput],
-            null, ["cli.js", "--timeout-action", "15000", "--timeout-navigation", "90000"]);
+            null);
         messages.Add(playwright);
 
         var burp = await EnsureServerAsync(codex!, "burp",
-            [java, "-jar", proxy, "--sse-url", "http://127.0.0.1:9876"], null, ["--sse-url"]);
+            [java, "-jar", proxy, "--sse-url", "http://127.0.0.1:9876"], null);
         messages.Add(burp);
 
         var success = messages.All(x => x.StartsWith("[OK]", StringComparison.Ordinal));
@@ -42,11 +43,10 @@ public sealed class McpSetupService
     }
 
     private static async Task<string> EnsureServerAsync(string codex, string name, IReadOnlyList<string> command,
-        IReadOnlyDictionary<string, string>? environment, IReadOnlyList<string> requiredMarkers)
+        IReadOnlyDictionary<string, string>? environment)
     {
-        var existing = await RunCodexAsync(codex, ["mcp", "get", name]);
-        if (existing.ExitCode == 0 && requiredMarkers.All(marker => existing.Output.Contains(marker, StringComparison.OrdinalIgnoreCase)) &&
-            (environment is null || environment.Keys.All(key => existing.Output.Contains(key, StringComparison.OrdinalIgnoreCase))))
+        var existing = await RunCodexAsync(codex, ["mcp", "get", name, "--json"]);
+        if (existing.ExitCode == 0 && MatchesConfiguration(existing.Output, command, environment))
             return $"[OK] {name}: 必要な設定で登録済みです。";
 
         if (existing.ExitCode == 0)
@@ -69,6 +69,35 @@ public sealed class McpSetupService
         var added = await RunCodexAsync(codex, arguments);
         if (added.ExitCode == 0) return $"[OK] {name}: Codexへ登録しました。";
         return $"[失敗] {name}: {FirstUsefulLine(added.Error, added.Output)}";
+    }
+
+    internal static bool MatchesConfiguration(string json, IReadOnlyList<string> command,
+        IReadOnlyDictionary<string, string>? environment = null)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.TryGetProperty("enabled", out var enabled) && enabled.ValueKind == JsonValueKind.False) return false;
+            var transport = root.GetProperty("transport");
+            if (transport.GetProperty("type").GetString() != "stdio" ||
+                !string.Equals(transport.GetProperty("command").GetString(), command[0], StringComparison.OrdinalIgnoreCase))
+                return false;
+            // Compare complete paths and arguments: marker-only checks kept stale portable paths after installation.
+            var arguments = transport.GetProperty("args").EnumerateArray().Select(x => x.GetString()).ToArray();
+            if (!arguments.SequenceEqual(command.Skip(1), StringComparer.Ordinal)) return false;
+            if (environment is not null)
+            {
+                var env = transport.GetProperty("env");
+                foreach (var pair in environment)
+                    if (!env.TryGetProperty(pair.Key, out var value) || value.GetString() != pair.Value) return false;
+            }
+            return true;
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or IndexOutOfRangeException)
+        {
+            return false;
+        }
     }
 
     private static async Task<ProcessResult> RunCodexAsync(string codex, IReadOnlyList<string> arguments)

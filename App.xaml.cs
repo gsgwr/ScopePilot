@@ -9,5 +9,13 @@ namespace ScopePilot;
 /// </summary>
 public partial class App : Application
 {
+    // Inno Setup checks this mutex before replacing application files.
+    private readonly System.Threading.Mutex installerMutex = new(false, @"Local\ScopePilot.Application");
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        installerMutex.Dispose();
+        base.OnExit(e);
+    }
 }
 

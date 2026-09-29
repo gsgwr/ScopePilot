@@ -12,6 +12,9 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        runtime: [win-x64, win-arm64]
 
     steps:
       - name: Checkout
@@ -44,12 +47,26 @@ jobs:
 
       - name: Publish Windows package
         shell: powershell
-        run: ./scripts/Publish.ps1 -SkipTests
+        run: ./scripts/Publish.ps1 -Runtime ${{ matrix.runtime }} -SkipTests
+
+      - name: Build Windows installer
+        shell: powershell
+        run: |
+          nuget install Tools.InnoSetup -Version 6.7.3 -Source https://api.nuget.org/v3/index.json -OutputDirectory "$env:RUNNER_TEMP\inno" -NonInteractive
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup restore failed.' }
+          ./scripts/Build-Installer.ps1 -Runtime ${{ matrix.runtime }} -SkipPublish -SkipTests -IsccPath "$env:RUNNER_TEMP\inno\Tools.InnoSetup.6.7.3\tools\ISCC.exe"
+
+      - name: Test installer lifecycle
+        if: matrix.runtime == 'win-x64'
+        shell: powershell
+        run: ./scripts/Test-Installer.ps1 -Runtime win-x64
 
       - name: Upload publish artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ScopePilot-win-x64
+          name: ScopePilot-${{ matrix.runtime }}
           path: |
-            artifacts/ScopePilot-*-win-x64.zip
-            artifacts/ScopePilot-*-win-x64.zip.sha256
+            artifacts/ScopePilot-*-${{ matrix.runtime }}.zip
+            artifacts/ScopePilot-*-${{ matrix.runtime }}.zip.sha256
+            artifacts/ScopePilot-*-${{ matrix.runtime }}-Setup.exe
+            artifacts/ScopePilot-*-${{ matrix.runtime }}-Setup.exe.sha256
