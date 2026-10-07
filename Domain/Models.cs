@@ -18,6 +18,9 @@ public enum ProjectStatus
 
 public sealed class EngagementProject
 {
+    public InputMode Mode { get; set; } = InputMode.WebExploration;
+    public ApiDocumentSettings ApiDocument { get; set; } = new();
+    public ObservableCollection<ApiRequestDraft> ApiRequests { get; set; } = [];
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "新規案件";
     public string StartUrl { get; set; } = string.Empty;

@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using ScopePilot.Domain;
 
 namespace ScopePilot.Services;
 
@@ -19,10 +20,23 @@ public sealed class DataManagementService
 {
     private readonly string _root;
 
-    public DataManagementService(string? root = null) => _root = root ?? Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScopePilot");
+    public DataManagementService(string? root = null) => _root = root ?? ScopePilotDataPaths.RootDirectory;
 
     public string RootDirectory => _root;
+
+    public string? FindLatestBurpExportDirectory(Guid projectId, InputMode mode)
+    {
+        var directory = ProjectDirectory("exports", projectId);
+        if (!Directory.Exists(directory)) return null;
+        var marker = mode == InputMode.ApiDocument ? "api-requests.json" : "burp-scope.json";
+        try
+        {
+            return new DirectoryInfo(directory).EnumerateDirectories()
+                .Where(x => File.Exists(Path.Combine(x.FullName, marker)))
+                .OrderByDescending(x => x.LastWriteTimeUtc).Select(x => x.FullName).FirstOrDefault();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
+    }
 
     public Task<ProjectDataSummary> GetSummaryAsync(Guid projectId)
     {

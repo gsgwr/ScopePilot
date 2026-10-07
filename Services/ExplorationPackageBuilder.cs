@@ -10,8 +10,7 @@ public sealed class ExplorationPackageBuilder
 
     public ExplorationPackageBuilder(string? runsDirectory = null)
     {
-        _runsDirectory = runsDirectory ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScopePilot", "runs");
+        _runsDirectory = runsDirectory ?? Path.Combine(ScopePilotDataPaths.RootDirectory, "runs");
     }
 
     public async Task<string> BuildAsync(EngagementProject project)

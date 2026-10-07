@@ -2,6 +2,24 @@
 
 ScopePilotは、受託Web診断の事前探索と診断対象リクエストの整理を支援するWindowsアプリです。
 
+## APIドキュメントモード
+
+案件設定の「入力モード」で、既存のWeb探索とAPIドキュメントからのリクエスト生成を切り替えます。APIモードはクローリングを行わず、Codex CLIまたはClaude Code CLIが読み込んだ文書を解釈します。
+
+1. 入力モードで「APIドキュメント」を選び、診断を許可されたOriginを設定します。
+2. 「ドキュメントを選択」でOpenAPI / SwaggerのJSON・YAML、Postman Collection、Markdown・HTML・TXTのAPI仕様書を読み込みます。対象はテキスト文書で、上限は250,000文字です。PDF・Wordはテキストへ変換してから読み込んでください。
+3. 実際の環境のAPIベースURL（例: `https://api.example.com/v1`）とAIを設定します。文書のservers/hostより、このベースURLを優先します。通信数上限は生成件数の上限として、実行時間はAI生成時間の上限として適用します。
+4. 「APIリクエストを生成」を押します。選択したAIのCLIがインストール・ログイン済みである必要があります。APIモードの生成時にBurp、Node.js、Playwright MCPの準備は不要です。
+5. 「APIリクエスト」でメソッド、URL、ヘッダー、本文、出典と仮値を確認・編集し、Burpへ渡す下書きを採用します。生成直後は全件未採用です。編集は「編集を保存」または「案件を保存」で保存します。
+6. 「Burpへ引き渡し」で「HTTPリクエストを出力」を押します。採用したリクエストを個別の `.http`、出典付き `api-requests.json`、`api-request-checklist.tsv` へ出力します。「選択したHTTPをコピー」も使用できます。
+7. `.http` の全文をBurp Repeaterの新しいタブへ貼り付け、JSONのURLに合わせて接続先のTLS・Host・Portを設定します。認証情報、仮値、案件の操作制限を確認したうえで送信を判断します。
+
+生成は文書に記載された通常利用のリクエストを下書きにする処理です。実際の通信・応答・診断所見として扱いません。認証トークンなどは置換値を使用し、文書にない実データのIDや値は未解決項目として記録します。外部 `$ref` の取得やmultipart・バイナリの補完は行わず、生成の制約へ記録します。大きい仕様書はAIの出力上限に収まらない場合があるため分割してください。
+
+読み込んだ文書は選択したAIへ渡され、案件JSONと実行履歴へ保存されます。バックアップにも含まれます。生成し直すと下書き一覧と採用状態が置き換わります。失敗や停止では、既存の下書きを保持します。実行履歴ではAPI実行ログ・生成結果・生成サマリーを参照し、同じ文書を現在の許可範囲で再生成できます。
+
+Codexは `exec --output-schema`、Claude Codeは `-p --json-schema --output-format json` で構造化出力を返します。APIモードではユーザーのMCP登録を使わず、文書を標準入力から渡します。Codexは `--ignore-user-config` 対応版、Claude Codeは `--safe-mode`・構造化出力対応のネイティブ版（通常は `%USERPROFILE%\.local\bin\claude.exe`）が必要です。既存のログインを使用します。Claudeの `--bare` はサブスクリプションのログインを使わないため、この連携では認証を保持する `--safe-mode` とツール無効化を使用します。CLIオプションの出典: [Codex非対話実行](https://developers.openai.com/codex/noninteractive)、[Claude Code CLI](https://code.claude.com/docs/en/cli-reference)。
+
 ## 現在の実装
 
 - 作業順の左ナビゲーション、画面別の主要操作、共通の状態表示
@@ -74,6 +92,10 @@ ScopePilotは、受託Web診断の事前探索と診断対象リクエストの�
 別案件へ切り替える場合は「新しい案件」を押します。現在の案件を保存したうえで、案件設定、観測通信、診断対象候補、手動操作表示、実行ログを新しい案件用に初期化します。保存済みの旧案件ファイルは削除しません。
 
 ## ビルドと起動
+
+開発環境などで保存先を変更する場合は、起動プロセスの `SCOPEPILOT_DATA_DIRECTORY` に保存ルートの絶対パスを指定できます。案件・実行履歴・Burp出力・レポート・バックアップ・Playwright出力が同じルートを使用します。指定しない場合は `%LOCALAPPDATA%\ScopePilot` です。既存データを引き継ぐ場合は、アプリを閉じて保存ルートの内容を新しい場所へコピーしてから、この環境変数を設定して起動してください。
+
+ローカル開発では `./scripts/Start-Local.ps1` でビルド済みアプリを起動できます。このスクリプトは保存先をリポジトリ内の `artifacts/ScopePilot-data` に設定し、`.cache/dotnet` にSDKがある場合はそのランタイムを使用します。`-DataDirectory` で別の保存先も指定できます。このフォルダーは案件データを含むため、`artifacts` を整理するときは事前にバックアップしてください。
 
 ```powershell
 $env:DOTNET_CLI_HOME = "$PWD\.dotnet-home"

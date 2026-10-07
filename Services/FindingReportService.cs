@@ -12,8 +12,7 @@ public sealed class FindingReportService
 {
     private readonly string _reportsDirectory;
 
-    public FindingReportService(string? reportsDirectory = null) => _reportsDirectory = reportsDirectory ?? Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScopePilot", "reports");
+    public FindingReportService(string? reportsDirectory = null) => _reportsDirectory = reportsDirectory ?? Path.Combine(ScopePilotDataPaths.RootDirectory, "reports");
 
     public async Task<FindingReportResult> ExportAsync(EngagementProject project)
     {

@@ -19,6 +19,7 @@ public sealed record ExplorationRunSummary(
     public string StartedAtDisplay => StartedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss");
     public string PatternCountDisplay => $"{RequestPatternCount:N0} / {FormPatternCount:N0}";
     public string Role { get; init; } = "未認証";
+    public InputMode Mode { get; init; } = InputMode.WebExploration;
     public int NewPatternCount { get; init; }
     public int ChangedPatternCount { get; init; }
     public int MissingPatternCount { get; init; }
@@ -38,8 +39,7 @@ public sealed class RunHistoryService
 
     public RunHistoryService(string? runsDirectory = null)
     {
-        _runsDirectory = runsDirectory ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScopePilot", "runs");
+        _runsDirectory = runsDirectory ?? Path.Combine(ScopePilotDataPaths.RootDirectory, "runs");
     }
 
     public async Task<IReadOnlyList<ExplorationRunSummary>> ListAsync(Guid projectId)
@@ -56,13 +56,19 @@ public sealed class RunHistoryService
                     0, 0, 0, 0, ex.Message, string.Empty));
             }
         }
-        for (var index = 0; index < results.Count - 1; index++)
-            results[index] = await AddDiffAsync(results[index], results[index + 1]);
+        for (var index = 0; index < results.Count; index++)
+        {
+            if (results[index].Mode == InputMode.ApiDocument) continue;
+            var previous = results.Skip(index + 1).FirstOrDefault(x => x.Mode == InputMode.WebExploration);
+            if (previous is not null) results[index] = await AddDiffAsync(results[index], previous);
+        }
         return results;
     }
 
     private static async Task<ExplorationRunSummary> AddDiffAsync(ExplorationRunSummary current, ExplorationRunSummary previous)
     {
+        if (current.Mode == InputMode.ApiDocument || previous.Mode == InputMode.ApiDocument)
+            return current with { DiffSummary = "API文書の生成実行は通信の観測差分に含めません。" };
         var currentPatterns = await ReadPatternsAsync(current.Directory);
         var previousPatterns = await ReadPatternsAsync(previous.Directory);
         var changes = new List<RunDiffEntry>();
@@ -98,6 +104,17 @@ public sealed class RunHistoryService
     private static async Task<ExplorationRunSummary> ReadAsync(DirectoryInfo directory)
     {
         var engagement = await ReadJsonAsync(Path.Combine(directory.FullName, "engagement.json"));
+        if (ReadString(engagement, "mode") == "api-document")
+        {
+            var api = await ReadJsonAsync(Path.Combine(directory.FullName, "api-document-summary.json"));
+            var apiStatus = ReadString(api, "status");
+            if (string.IsNullOrEmpty(apiStatus)) apiStatus = File.Exists(Path.Combine(directory.FullName, "api-document-run.log")) ? "failed" : "prepared";
+            return new(directory.Name, directory.FullName, ReadDate(engagement, "runStartedAt") ?? directory.CreationTime,
+                apiStatus, StatusDisplay(apiStatus), 0, 0, ReadInt(api, "requestCount"), 0,
+                ReadString(api, "summary") is { Length: > 0 } apiSummary ? apiSummary : "APIドキュメントの生成パッケージを準備しました。",
+                ReadStringArray(api, "limitations"))
+            { Mode = InputMode.ApiDocument, Role = ReadString(engagement, "activeRole"), DiffSummary = "API文書の生成実行です。通信は未送信です。" };
+        }
         var fast = await ReadJsonAsync(Path.Combine(directory.FullName, "fast-crawl-summary.json"));
         var aiInput = await ReadJsonAsync(Path.Combine(directory.FullName, "ai-input.json"));
         var result = await ReadJsonAsync(Path.Combine(directory.FullName, "codex-result.json"));
@@ -142,6 +159,7 @@ public sealed class RunHistoryService
         "waiting" => "手動操作待ち",
         "crawled" => "クロール完了",
         "prepared" => "準備済み",
+        "paused" => "停止",
         _ => status
     };
 

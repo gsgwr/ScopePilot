@@ -24,6 +24,10 @@ public sealed class MainViewModel : ObservableObject
     private readonly FindingReportService _findingReport = new();
     private readonly RunHistoryService _runHistoryService = new();
     private readonly DataManagementService _dataManagement = new();
+    private readonly ApiDocumentService _apiDocuments = new();
+    private readonly ApiDocumentAiRunner _apiRunner = new();
+    private readonly ApiRequestExportService _apiExport = new();
+    private ApiRequestDraft? _selectedApiRequest;
     private EngagementProject _project = new();
     private CancellationTokenSource? _runCancellation;
     private string? _currentRunDirectory;
@@ -53,8 +57,8 @@ public sealed class MainViewModel : ObservableObject
         OpenRunFolderCommand = new RelayCommand(OpenSelectedRunFolder, () => SelectedRun is not null);
         RetrySelectedRunCommand = new AsyncRelayCommand(RetrySelectedRunAsync, () => !IsRunning && SelectedRun is not null);
         CheckEnvironmentCommand = new AsyncRelayCommand(CheckEnvironmentAsync);
-        SetupMcpCommand = new AsyncRelayCommand(SetupMcpAsync);
-        BuildExplorationPackageCommand = new AsyncRelayCommand(BuildExplorationPackageAsync);
+        SetupMcpCommand = new AsyncRelayCommand(SetupMcpAsync, () => !IsRunning && !IsApiMode);
+        BuildExplorationPackageCommand = new AsyncRelayCommand(BuildExplorationPackageAsync, () => !IsRunning);
         StartExplorationCommand = new AsyncRelayCommand(StartExplorationAsync, () => !IsRunning);
         StopExplorationCommand = new RelayCommand(StopExploration, () => IsRunning);
         ResumeExplorationCommand = new RelayCommand(ResumeExploration, () => IsRunning && Project.Status == ProjectStatus.WaitingForHuman);
@@ -72,9 +76,10 @@ public sealed class MainViewModel : ObservableObject
         RefreshDataSummaryCommand = new AsyncRelayCommand(RefreshDataSummaryAsync);
         BackupProjectCommand = new AsyncRelayCommand(BackupProjectAsync, () => !IsRunning);
         OpenDataFolderCommand = new RelayCommand(() => OpenRunPath(_dataManagement.RootDirectory, "データフォルダー"));
+        CopyApiRequestCommand = new RelayCommand(CopyApiRequest, () => !IsRunning && SelectedApiRequest is not null);
     }
 
-    public EngagementProject Project { get => _project; private set { if (SetProperty(ref _project, value)) RefreshSummary(); } }
+    public EngagementProject Project { get => _project; private set { PrepareProject(value); if (SetProperty(ref _project, value)) RefreshSummary(); } }
     public ObservableCollection<string> Logs { get; } = [];
     public ObservableCollection<SavedProjectInfo> SavedProjects { get; } = [];
     public ObservableCollection<ExplorationRunSummary> RunHistory { get; } = [];
@@ -106,6 +111,91 @@ public sealed class MainViewModel : ObservableObject
     public AsyncRelayCommand RefreshDataSummaryCommand { get; }
     public AsyncRelayCommand BackupProjectCommand { get; }
     public RelayCommand OpenDataFolderCommand { get; }
+    public RelayCommand CopyApiRequestCommand { get; }
+    public bool IsApiMode => Project.Mode == InputMode.ApiDocument;
+    public int ProjectModeIndex
+    {
+        get => (int)Project.Mode;
+        set
+        {
+            if (IsRunning || value is not (0 or 1) || (int)Project.Mode == value) return;
+            Project.Mode = (InputMode)value;
+            ResetBurpHandoff();
+            RefreshModeProperties();
+            Log(IsApiMode ? "APIドキュメントモードへ切り替えました。文書とAPIベースURLを設定してください。" : "Web探索モードへ切り替えました。");
+        }
+    }
+    public int ApiProviderIndex
+    {
+        get => (int)Project.ApiDocument.Provider;
+        set { if (!IsRunning && value is 0 or 1) { Project.ApiDocument.Provider = (DocumentAiProvider)value; RaisePropertyChanged(); } }
+    }
+    public string ApiDocumentName => string.IsNullOrWhiteSpace(Project.ApiDocument.FileName) ? "ドキュメント未選択" : $"{Project.ApiDocument.FileName}（{Project.ApiDocument.Content.Length:N0}文字）";
+    public string StartActionText => IsApiMode ? "APIリクエストを生成" : "探索を開始";
+    public string ExecutionPageHeader => IsApiMode ? "APIリクエスト生成" : "探索";
+    public string ExecutionNavigationText => IsApiMode ? "2   API生成" : "2   探索";
+    public string ExecutionNextText => IsApiMode ? "API生成へ進む →" : "探索へ進む →";
+    public string RequestLimitLabel => IsApiMode ? "最大生成リクエスト数" : "最大通信数";
+    public string ReviewPageTag => IsApiMode ? "8" : "3";
+    public string ReviewNavigationText => IsApiMode ? "3   APIリクエスト" : "3   候補レビュー";
+    public string RoleHelpText => IsApiMode ? "選択ロールを生成リクエストへ記録します。認証情報は下書きの置換値を確認して補完してください。"
+        : "未認証以外では、Codexがログイン画面を開いた後に手動操作を求めます。認証後は同じブラウザセッションで探索を続けます。";
+    public string RunModeDescription => IsApiMode
+        ? "読み込んだAPIドキュメントをAIで解釈し、未送信のリクエストを作成します。［APIリクエスト］で仮値と本文を確認・編集して採用してください。"
+        : "まず高速クローラで収集し、動的な代表パターンをAIで確認します。ログインなどの手動操作が必要になったら、ここに案内が表示されます。";
+    public string BurpExportActionText => IsApiMode ? "HTTPリクエストを出力" : "Scope出力を生成";
+    public string BurpListHeader => IsApiMode ? "Burp RepeaterへのHTTPリクエスト出力" : "登録用URL正規表現";
+    public string BurpPageDescription => IsApiMode ? "採用したAPIリクエストをHTTPテキストとして出力し、Burp Repeaterへ貼り付けます。"
+        : "採用した候補を出力し、Burp SuiteのScopeへ登録します。";
+    public string BurpModeDescription => IsApiMode ? "APIリクエスト画面で出典と仮値を確認し、採用したリクエストをHTTPファイルへ出力します。URLに合わせてBurp Repeaterの接続先を指定してください。"
+        : "Burp Suite Community EditionではScopeを自動変更できないため、採用候補を少数のURL正規表現へ集約して手動登録します。案件の許可Originと一致することを確認してから追加してください。";
+    public string ApiRequestSummary => $"API文書から生成: {Project.ApiRequests.Count:N0}件（採用 {Project.ApiRequests.Count(x => x.Selected):N0}件）";
+    public ApiRequestDraft? SelectedApiRequest
+    {
+        get => _selectedApiRequest;
+        set { if (SetProperty(ref _selectedApiRequest, value)) CopyApiRequestCommand.RaiseCanExecuteChanged(); }
+    }
+
+    public async Task ReadApiDocumentAsync(string path)
+    {
+        if (IsRunning) return;
+        try
+        {
+            Project.ApiDocument = await ApiDocumentService.ReadDocumentAsync(path, Project.ApiDocument);
+            RefreshModeProperties();
+            await SaveAsync();
+            Log($"APIドキュメントを読み込みました: {ApiDocumentName}");
+        }
+        catch (Exception ex) { Log($"APIドキュメントの読込に失敗しました: {ex.Message}"); }
+    }
+
+    public async Task SaveApiRequestChangesAsync()
+    {
+        if (IsRunning) return;
+        await SaveAsync();
+        RaisePropertyChanged(nameof(ApiRequestSummary));
+    }
+
+    private void CopyApiRequest()
+    {
+        if (SelectedApiRequest is null) return;
+        try
+        {
+            ApiRequestFormatter.EnsureAllowed(SelectedApiRequest.Url, Project.AllowedOrigins);
+            System.Windows.Clipboard.SetText(ApiRequestFormatter.Format(SelectedApiRequest));
+            Log("HTTPリクエストをコピーしました。Burp Repeaterへ貼り付け、接続先と仮値を確認してください。");
+        }
+        catch (Exception ex) { Log($"HTTPリクエストをコピーできませんでした: {ex.Message}"); }
+    }
+
+    private void RefreshModeProperties()
+    {
+        foreach (var name in new[] { nameof(IsApiMode), nameof(ProjectModeIndex), nameof(ApiProviderIndex), nameof(ApiDocumentName), nameof(StartActionText),
+            nameof(RunModeDescription), nameof(BurpExportActionText), nameof(BurpListHeader), nameof(ApiRequestSummary), nameof(SummaryText), nameof(ReviewPageTag), nameof(ReviewNavigationText), nameof(RoleHelpText),
+            nameof(ExecutionPageHeader), nameof(ExecutionNavigationText), nameof(ExecutionNextText), nameof(RequestLimitLabel), nameof(BurpPageDescription), nameof(BurpModeDescription) }) RaisePropertyChanged(name);
+        RaisePropertyChanged(nameof(Project));
+        SetupMcpCommand.RaiseCanExecuteChanged();
+    }
     public bool IsRunning
     {
         get => _isRunning;
@@ -124,6 +214,9 @@ public sealed class MainViewModel : ObservableObject
             ExportBurpScopeCommand.RaiseCanExecuteChanged();
             ExportFindingsCommand.RaiseCanExecuteChanged();
             BackupProjectCommand.RaiseCanExecuteChanged();
+            SetupMcpCommand.RaiseCanExecuteChanged();
+            BuildExplorationPackageCommand.RaiseCanExecuteChanged();
+            CopyApiRequestCommand.RaiseCanExecuteChanged();
         }
     }
     public string InterventionText { get => _interventionText; private set => SetProperty(ref _interventionText, value); }
@@ -148,7 +241,8 @@ public sealed class MainViewModel : ObservableObject
     public DiagnosticCandidate? SelectedCandidate { get => _selectedCandidate; set => SetProperty(ref _selectedCandidate, value); }
     public DiagnosticFinding? SelectedFinding { get => _selectedFinding; set => SetProperty(ref _selectedFinding, value); }
     public string StatusText => Project.Status switch { ProjectStatus.Draft => "設定中", ProjectStatus.Ready => "準備完了", ProjectStatus.Crawling => "探索中", ProjectStatus.WaitingForHuman => "手動操作待ち", ProjectStatus.Organizing => "整理中", ProjectStatus.ReviewReady => "確認可能", ProjectStatus.Partial => "部分結果", ProjectStatus.Paused => "一時停止", _ => "失敗" };
-    public string SummaryText => $"{Project.Name}  |  観測 {Project.Requests.Count:N0}件  |  候補 {Project.Candidates.Count(x => x.Selected):N0}件";
+    public string SummaryText => IsApiMode ? $"{Project.Name}  |  APIドキュメント  |  生成 {Project.ApiRequests.Count:N0}件  |  採用 {Project.ApiRequests.Count(x => x.Selected):N0}件"
+        : $"{Project.Name}  |  観測 {Project.Requests.Count:N0}件  |  候補 {Project.Candidates.Count(x => x.Selected):N0}件";
     public string RequestSummary => $"観測した通信: {Project.Requests.Count:N0}件";
     public string CandidateSummary => $"代表化した候補: {Project.Candidates.Count:N0}件（採用 {Project.Candidates.Count(x => x.Selected):N0}件／除外キャッシュ {Project.DeferredCandidatePatterns.Count:N0}件）";
     public string CandidateFilterSummary => $"表示 {FilteredCandidates.Count:N0}件 / 全{Project.Candidates.Count:N0}件（{CandidateReviewFilter}）";
@@ -178,6 +272,7 @@ public sealed class MainViewModel : ObservableObject
             Project = await _store.LoadLatestAsync() ?? new EngagementProject();
             PrepareProject(Project);
             UpdateRoleOptions();
+            ResetBurpHandoff();
             if (Project.Status is ProjectStatus.Crawling or ProjectStatus.WaitingForHuman or ProjectStatus.Organizing)
             {
                 Project.Status = Project.Requests.Count > 0 ? ProjectStatus.Partial : ProjectStatus.Paused;
@@ -188,7 +283,7 @@ public sealed class MainViewModel : ObservableObject
             Log(Project.CreatedAt == Project.UpdatedAt ? "新規案件を開始しました。" : "直近の案件を復元しました。");
             if (removedStartUrlCache)
                 Log("開始URLに誤って登録されていた除外キャッシュを削除しました。");
-            if (Project.Requests.Count > 0)
+            if (Project.Requests.Count > 0 && !IsApiMode)
             {
                 GenerateCandidates();
                 await _store.SaveAsync(Project);
@@ -371,7 +466,7 @@ public sealed class MainViewModel : ObservableObject
             SelectedFinding = null;
             Logs.Clear();
             RaisePropertyChanged(nameof(ConsoleText));
-            if (Project.Requests.Count > 0) GenerateCandidates();
+            if (Project.Requests.Count > 0 && !IsApiMode) GenerateCandidates();
             await _store.SaveAsync(Project);
             await RefreshSavedProjectsAsync(Project.Id);
             await RefreshRunHistoryAsync();
@@ -473,19 +568,42 @@ public sealed class MainViewModel : ObservableObject
 
     private void OpenRunPath(string path, string label)
     {
-        try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
+        try { WorkspacePathOpener.Open(path); }
         catch (Exception ex) { Log($"{label}を開けませんでした: {ex.Message}"); }
     }
 
     private async Task RetrySelectedRunAsync()
     {
         if (SelectedRun is null) return;
-        Log($"過去実行 {SelectedRun.StartedAtDisplay} の設定を使い、新しい実行として再試行します。");
+        if (SelectedRun.Mode == InputMode.ApiDocument)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(SelectedRun.Directory, "engagement.json")));
+                var root = document.RootElement;
+                Project.ApiDocument = new ApiDocumentSettings
+                {
+                    FileName = root.GetProperty("documentName").GetString() ?? "api-document.txt",
+                    Content = await File.ReadAllTextAsync(Path.Combine(SelectedRun.Directory, "api-document.txt")),
+                    BaseUrl = root.GetProperty("baseUrl").GetString() ?? string.Empty,
+                    Provider = Enum.Parse<DocumentAiProvider>(root.GetProperty("provider").GetString()!)
+                };
+                Project.Mode = InputMode.ApiDocument;
+                Project.ActiveRole = root.GetProperty("activeRole").GetString() ?? "未認証";
+                // Reuse the snapshot against the project's current authorization scope.
+                RefreshModeProperties();
+            }
+            catch (Exception ex) { Log($"API実行の入力を復元できませんでした: {ex.Message}"); return; }
+        }
+        else { Project.Mode = InputMode.WebExploration; RefreshModeProperties(); }
+        Log($"過去実行 {SelectedRun.StartedAtDisplay} を参考に、現在の許可範囲と上限で新しい実行を開始します。");
         await StartExplorationAsync();
     }
 
     private static void PrepareProject(EngagementProject project)
     {
+        project.ApiDocument ??= new ApiDocumentSettings();
+        project.ApiRequests ??= [];
         project.Guidelines ??= new GuidelineSelectionOptions();
         project.Requests ??= [];
         project.Candidates ??= [];
@@ -524,6 +642,13 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task CheckEnvironmentAsync()
     {
+        if (IsApiMode)
+        {
+            var provider = Project.ApiDocument.Provider;
+            var executable = ApiDocumentAiRunner.FindExecutable(provider);
+            Log(executable is null ? $"[要設定] {provider} CLIをインストールしてログインしてください。" : $"[OK] {provider} CLI: {executable}。ログイン状態は生成時に確認します。");
+            return;
+        }
         Log("環境チェックを開始します。");
         foreach (var item in await _environment.CheckAsync()) Log($"[{(item.Available ? "OK" : "要設定")}] {item.Name}: {item.Detail}");
     }
@@ -538,6 +663,12 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task BuildExplorationPackageAsync()
     {
+        if (IsApiMode)
+        {
+            try { var directory = await _apiDocuments.BuildAsync(Project); await SaveAsync(); await RefreshRunHistoryAsync(); await RefreshDataSummaryAsync(); Log($"API生成パッケージを準備しました: {directory}"); }
+            catch (Exception ex) { Log($"API生成パッケージを準備できませんでした: {ex.Message}"); }
+            return;
+        }
         var path = await BuildPackageAsync();
         if (path is null) return;
         await RefreshRunHistoryAsync();
@@ -547,8 +678,83 @@ public sealed class MainViewModel : ObservableObject
         Log("パッケージは［AI探索を開始］から実行できます。");
     }
 
+    private async Task StartApiDocumentAsync()
+    {
+        IsRunning = true;
+        _currentRunDirectory = null;
+        _runCancellation = new CancellationTokenSource();
+        try
+        {
+            UpdateRoleOptions();
+            ApiDocumentService.Validate(Project);
+            _runCancellation.CancelAfter(TimeSpan.FromMinutes(Project.MaxMinutes));
+            SetRunProgress("API入力準備", 10, "APIドキュメントと生成条件を保存しています。");
+            _currentRunDirectory = await _apiDocuments.BuildAsync(Project);
+            Project.Status = ProjectStatus.Organizing;
+            await _store.SaveAsync(Project);
+            RefreshSummary();
+            SetRunProgress("APIリクエスト生成", 35, $"{Project.ApiDocument.Provider}が文書のAPI定義を読み取っています。");
+            var result = await _apiRunner.RunAsync(_currentRunDirectory, Project.ApiDocument.Provider, new Progress<string>(Log), _runCancellation.Token);
+            if (result.Cancelled) throw new OperationCanceledException();
+            if (result.ExitCode != 0 || !File.Exists(result.ResultPath))
+                throw new InvalidDataException("AIがリクエスト生成を完了できませんでした。実行履歴のAPI実行ログを確認してください。");
+            SetRunProgress("生成結果確認", 85, "生成結果のURL、ヘッダー、本文を検証しています。");
+            var parsed = ApiDocumentService.ParseResult(await File.ReadAllTextAsync(result.ResultPath), Project, _currentRunDirectory);
+            if (parsed.Status == "failed") throw new InvalidDataException(parsed.Summary);
+            // Replace only after the complete result passed validation. Every new draft needs review.
+            Project.ApiRequests.Clear();
+            foreach (var draft in parsed.Requests) Project.ApiRequests.Add(draft);
+            ResetBurpHandoff();
+            SelectedApiRequest = Project.ApiRequests.FirstOrDefault();
+            Project.Status = parsed.Status == "partial" ? ProjectStatus.Partial : ProjectStatus.ReviewReady;
+            await File.WriteAllTextAsync(Path.Combine(_currentRunDirectory, "api-document-summary.json"), JsonSerializer.Serialize(new
+            {
+                status = parsed.Status, summary = parsed.Summary, limitations = parsed.Limitations,
+                requestCount = parsed.Requests.Count, finishedAt = DateTimeOffset.Now
+            }, new JsonSerializerOptions { WriteIndented = true }));
+            SetRunProgress("完了", 100, $"{parsed.Requests.Count:N0}件の未送信リクエストを生成しました。APIリクエスト画面で確認してください。");
+            Log(parsed.Summary);
+            foreach (var limitation in parsed.Limitations) Log($"API生成の制約: {limitation}");
+            Log($"API文書から{parsed.Requests.Count:N0}件を生成しました。［APIリクエスト］で内容を補完して採用してください。");
+        }
+        catch (OperationCanceledException)
+        {
+            Project.Status = ProjectStatus.Paused;
+            SetRunProgress("停止", RunProgress, "APIリクエストの生成を停止しました。");
+            await WriteApiFailureSummaryAsync("paused", "APIリクエストの生成を停止しました。");
+        }
+        catch (Exception ex)
+        {
+            Project.Status = ProjectStatus.Failed;
+            SetRunProgress("生成失敗", RunProgress, ex.Message);
+            Log($"APIリクエストの生成に失敗しました: {ex.Message}");
+            await WriteApiFailureSummaryAsync("failed", ex.Message);
+        }
+        finally
+        {
+            IsRunning = false;
+            _runCancellation.Dispose();
+            _runCancellation = null;
+            RefreshSummary();
+            try { await _store.SaveAsync(Project); await RefreshRunHistoryAsync(); await RefreshDataSummaryAsync(); }
+            catch (Exception ex) { Log($"API実行の保存・履歴更新に失敗しました: {ex.Message}"); }
+        }
+    }
+
+    private async Task WriteApiFailureSummaryAsync(string status, string summary)
+    {
+        if (_currentRunDirectory is null) return;
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(_currentRunDirectory, "api-document-summary.json"),
+                JsonSerializer.Serialize(new { status, summary, limitations = Array.Empty<string>(), requestCount = 0, finishedAt = DateTimeOffset.Now }));
+        }
+        catch (Exception ex) { Log($"API実行サマリーを保存できませんでした: {ex.Message}"); }
+    }
+
     private async Task StartExplorationAsync()
     {
+        if (IsApiMode) { await StartApiDocumentAsync(); return; }
         UpdateRoleOptions();
         SetRunProgress("環境確認", 2, "MCPと実行環境を確認しています。");
         Log($"探索対象ロール: {Project.ActiveRole}");
@@ -739,6 +945,7 @@ public sealed class MainViewModel : ObservableObject
         _runCancellation?.Cancel();
         _fastCrawler.Stop();
         _runner.Stop();
+        _apiRunner.Stop();
     }
 
     private void ResumeExploration()
@@ -850,9 +1057,16 @@ public sealed class MainViewModel : ObservableObject
         catch { return detail; }
     }
 
-    private bool IsConfigurationValid() =>
-        Uri.TryCreate(Project.StartUrl, UriKind.Absolute, out var start) && start.Scheme is "http" or "https" &&
-        !string.IsNullOrWhiteSpace(Project.AllowedOrigins);
+    private bool IsConfigurationValid()
+    {
+        if (IsApiMode)
+        {
+            try { ApiDocumentService.Validate(Project); return true; }
+            catch (InvalidDataException) { return false; }
+        }
+        return Uri.TryCreate(Project.StartUrl, UriKind.Absolute, out var start) && start.Scheme is "http" or "https" &&
+            !string.IsNullOrWhiteSpace(Project.AllowedOrigins);
+    }
 
     private void GenerateCandidates()
     {
@@ -883,6 +1097,22 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task ExportBurpScopeAsync()
     {
+        if (IsApiMode)
+        {
+            try
+            {
+                var export = await _apiExport.ExportAsync(Project);
+                await _store.SaveAsync(Project);
+                BurpScopeRegexes.Clear();
+                CopyNextBurpRegexCommand.RaiseCanExecuteChanged();
+                LastBurpExportDirectory = export.Directory;
+                BurpHandoffStatus = $"採用{export.RequestCount:N0}件のHTTPリクエストを出力しました。requests内の.httpをBurp Repeaterへ貼り付け、URLに合わせてTLS・Host・Portを設定してください。";
+                Log($"APIリクエストを出力しました: {export.Directory}");
+                await RefreshDataSummaryAsync();
+            }
+            catch (Exception ex) { Log($"APIリクエストの出力に失敗しました: {ex.Message}"); }
+            return;
+        }
         try
         {
             var result = await _burpScopeExport.ExportAsync(Project);
@@ -923,11 +1153,12 @@ public sealed class MainViewModel : ObservableObject
 
     private void ResetBurpHandoff()
     {
+        SelectedApiRequest = null;
         BurpScopeRegexes.Clear();
-        LastBurpExportDirectory = null;
+        LastBurpExportDirectory = _dataManagement.FindLatestBurpExportDirectory(Project.Id, Project.Mode);
         SelectedBurpScopeRegex = null;
         _nextBurpRegexIndex = 0;
-        BurpHandoffStatus = "Burp Scope出力を生成すると、登録用の正規表現をここで案内します。";
+        BurpHandoffStatus = IsApiMode ? "APIリクエスト画面で下書きを確認・採用してから［HTTPリクエストを出力］を押してください。" : "Burp Scope出力を生成すると、登録用の正規表現をここで案内します。";
         CopyNextBurpRegexCommand.RaiseCanExecuteChanged();
     }
 
@@ -1010,5 +1241,5 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private void Log(string message) { Logs.Insert(0, $"{DateTime.Now:HH:mm:ss}  {message}"); while (Logs.Count > 500) Logs.RemoveAt(Logs.Count - 1); RaisePropertyChanged(nameof(ConsoleText)); RaisePropertyChanged(nameof(LatestLog)); }
-    private void RefreshSummary() { RaisePropertyChanged(nameof(StatusText)); RaisePropertyChanged(nameof(SummaryText)); RaisePropertyChanged(nameof(RequestSummary)); RaisePropertyChanged(nameof(CandidateSummary)); RaisePropertyChanged(nameof(FindingSummary)); RaisePropertyChanged(nameof(RunHistorySummary)); }
+    private void RefreshSummary() { RaisePropertyChanged(nameof(StatusText)); RaisePropertyChanged(nameof(SummaryText)); RaisePropertyChanged(nameof(RequestSummary)); RaisePropertyChanged(nameof(CandidateSummary)); RaisePropertyChanged(nameof(FindingSummary)); RaisePropertyChanged(nameof(RunHistorySummary)); RefreshModeProperties(); }
 }

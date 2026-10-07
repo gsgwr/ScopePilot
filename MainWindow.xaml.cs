@@ -52,8 +52,12 @@ public partial class MainWindow : Window
         }
         else if (e.Key == Key.F)
         {
-            NavigateTo("3");
-            Dispatcher.BeginInvoke(() => { CandidateSearchBox.Focus(); CandidateSearchBox.SelectAll(); });
+            NavigateTo(_viewModel.ReviewPageTag);
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (_viewModel.IsApiMode) ApiRequestsGrid.Focus();
+                else { CandidateSearchBox.Focus(); CandidateSearchBox.SelectAll(); }
+            });
             e.Handled = true;
         }
     }
@@ -85,6 +89,20 @@ public partial class MainWindow : Window
         };
         if (dialog.ShowDialog(this) == true) await _viewModel.ImportAsync(dialog.FileName);
     }
+
+    private async void ReadApiDocument_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.IsRunning) return;
+        var dialog = new OpenFileDialog
+        {
+            Title = "APIドキュメントを読み込む",
+            Filter = "API仕様書 (*.json;*.yaml;*.yml;*.md;*.html;*.htm;*.txt)|*.json;*.yaml;*.yml;*.md;*.html;*.htm;*.txt|すべてのファイル (*.*)|*.*"
+        };
+        if (dialog.ShowDialog(this) == true) await _viewModel.ReadApiDocumentAsync(dialog.FileName);
+    }
+
+    private async void ApiRequestSelection_Click(object sender, RoutedEventArgs e) => await _viewModel.SaveApiRequestChangesAsync();
+    private async void SaveApiRequest_Click(object sender, RoutedEventArgs e) => await _viewModel.SaveApiRequestChangesAsync();
 
     private void CopyLog_Click(object sender, RoutedEventArgs e)
     {

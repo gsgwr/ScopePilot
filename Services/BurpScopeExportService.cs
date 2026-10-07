@@ -11,8 +11,7 @@ public sealed class BurpScopeExportService
 {
     private readonly string _exportsDirectory;
 
-    public BurpScopeExportService(string? exportsDirectory = null) => _exportsDirectory = exportsDirectory ?? Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScopePilot", "exports");
+    public BurpScopeExportService(string? exportsDirectory = null) => _exportsDirectory = exportsDirectory ?? Path.Combine(ScopePilotDataPaths.RootDirectory, "exports");
 
     public async Task<BurpScopeExportResult> ExportAsync(EngagementProject project)
     {

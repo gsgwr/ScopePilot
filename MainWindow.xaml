@@ -4,6 +4,14 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Styles/Controls.xaml" />
             </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="ApiOnly" TargetType="FrameworkElement">
+                <Setter Property="Visibility" Value="Collapsed" />
+                <Style.Triggers><DataTrigger Binding="{Binding IsApiMode}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+            </Style>
+            <Style x:Key="WebOnly" TargetType="FrameworkElement">
+                <Setter Property="Visibility" Value="Visible" />
+                <Style.Triggers><DataTrigger Binding="{Binding IsApiMode}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
     <Grid Background="{DynamicResource WindowBackground}">
@@ -30,8 +38,8 @@
                         <TextBlock Text="作業の流れ" FontSize="12" Foreground="{DynamicResource TextSecondary}" />
                     </ListBoxItem>
                     <ListBoxItem Tag="0" Content="1   案件設定" />
-                    <ListBoxItem Tag="1" Content="2   探索" />
-                    <ListBoxItem Tag="3" Content="3   候補レビュー" />
+                    <ListBoxItem Tag="1" Content="{Binding ExecutionNavigationText}" />
+                    <ListBoxItem Tag="{Binding ReviewPageTag}" Content="{Binding ReviewNavigationText}" />
                     <ListBoxItem Tag="6" Content="4   Burpへ引き渡し" />
                     <ListBoxItem IsEnabled="False" Focusable="False" Padding="12,4" Margin="0,24,0,8">
                         <TextBlock Text="記録と管理" FontSize="12" Foreground="{DynamicResource TextSecondary}" />
@@ -72,7 +80,7 @@
                     <DockPanel>
                         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                             <Button Content="新しい案件" Command="{Binding NewProjectCommand}" />
-                            <Button Content="探索へ進む →" Tag="1" Click="Navigate_Click" Style="{StaticResource PrimaryActionButton}" />
+                            <Button Content="{Binding ExecutionNextText}" Tag="1" Click="Navigate_Click" Style="{StaticResource PrimaryActionButton}" />
                         </WrapPanel>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,16,0">
                             <StackPanel x:Name="SettingsForm" MaxWidth="880" HorizontalAlignment="Left" Margin="0" Style="{StaticResource EditableWhenIdle}" Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
@@ -88,16 +96,40 @@
                                 </GroupBox>
                                 <GroupBox Header="基本情報" Margin="0,0,0,16">
                                     <StackPanel>
-                                        <TextBlock Style="{StaticResource Hint}" Text="開始URLと、探索・診断を許可された範囲を入力してください。" />
+                                        <TextBlock Text="入力モード" />
+                                        <ListBox SelectedIndex="{Binding ProjectModeIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="100" Margin="0,4,0,12" AutomationProperties.Name="入力モード">
+                                            <ListBoxItem Content="Web探索（クローリング）" />
+                                            <ListBoxItem Content="APIドキュメント（リクエスト生成）" />
+                                        </ListBox>
                                         <TextBlock Text="案件名" />
                                         <TextBox Text="{Binding Project.Name, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="案件名" />
-                                        <TextBlock Text="開始URL" />
-                                        <TextBox Text="{Binding Project.StartUrl, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="開始URL" />
+                                        <StackPanel Style="{StaticResource WebOnly}">
+                                            <TextBlock Text="開始URL" />
+                                            <TextBox Text="{Binding Project.StartUrl, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="開始URL" />
+                                        </StackPanel>
                                         <TextBlock Style="{StaticResource Hint}" Text="Originは「https://example.com」のように、スキーム・ホスト・ポートで指定します。パスは含めません。" />
                                         <TextBlock Text="診断を許可されたOrigin（1行1件）" />
                                         <TextBox Text="{Binding Project.AllowedOrigins, UpdateSourceTrigger=PropertyChanged}" Height="86" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="診断を許可されたOrigin" />
-                                        <TextBlock Text="表示・認証に必要だが診断対象外のOrigin" />
-                                        <TextBox Text="{Binding Project.SupportingOrigins, UpdateSourceTrigger=PropertyChanged}" Height="70" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="診断対象外のOrigin" />
+                                        <StackPanel Style="{StaticResource WebOnly}">
+                                            <TextBlock Text="表示・認証に必要だが診断対象外のOrigin" />
+                                            <TextBox Text="{Binding Project.SupportingOrigins, UpdateSourceTrigger=PropertyChanged}" Height="70" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="診断対象外のOrigin" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </GroupBox>
+                                <GroupBox Header="APIドキュメント" Margin="0,0,0,16" Style="{StaticResource ApiOnly}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource Hint}" Text="OpenAPI / SwaggerのJSON・YAML、Postman Collection、Markdown・HTML・TXTのAPI仕様書を読み込みます。文書は選択したAIへ渡され、案件と実行履歴にも保存されます。" />
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="ドキュメントを選択" Click="ReadApiDocument_Click" />
+                                            <TextBlock Text="{Binding ApiDocumentName}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                        </DockPanel>
+                                        <TextBlock Text="APIベースURL（例: https://api.example.com/v1）" />
+                                        <TextBox Text="{Binding Project.ApiDocument.BaseUrl, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="APIベースURL" />
+                                        <TextBlock Text="文書を読み取るAI" />
+                                        <ListBox SelectedIndex="{Binding ApiProviderIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="100" Margin="0,4,0,8" AutomationProperties.Name="APIドキュメントのAI">
+                                            <ListBoxItem Content="Codex CLI" /><ListBoxItem Content="Claude Code CLI" />
+                                        </ListBox>
+                                        <TextBlock Style="{StaticResource Hint}" Text="CLIのインストールとログインが必要です。生成件数には通信上限、生成時間には実行時間上限を使用します。生成し直すと下書き一覧が置き換わります。" />
                                     </StackPanel>
                                 </GroupBox>
                                 <GroupBox Header="アカウントと操作制限" Margin="0,0,0,16">
@@ -106,7 +138,7 @@
                                         <TextBox Text="{Binding Project.Roles, UpdateSourceTrigger=PropertyChanged}" Height="70" AcceptsReturn="True" TextChanged="RolesTextBox_TextChanged" AutomationProperties.Name="認証ロール" />
                                         <TextBlock Text="今回探索するロール" Margin="0,8,0,0" />
                                         <ListBox ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding Project.ActiveRole, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="64" />
-                                        <TextBlock Text="未認証以外では、Codexがログイン画面を開いた後に手動操作を求めます。認証後は同じブラウザセッションで探索を続けます。" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,3,0,8" />
+                                        <TextBlock Text="{Binding RoleHelpText}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,3,0,8" />
                                         <TextBlock Text="自動実行しない操作（1行1件）" />
                                         <TextBox Text="{Binding Project.ForbiddenActions, UpdateSourceTrigger=PropertyChanged}" Height="120" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="自動実行しない操作" />
                                     </StackPanel>
@@ -122,15 +154,15 @@
                                             <RowDefinition />
                                             <RowDefinition />
                                         </Grid.RowDefinitions>
-                                        <TextBlock Text="最大ページ数" />
-                                        <TextBox Grid.Column="1" Text="{Binding Project.MaxPages}" AutomationProperties.Name="最大ページ数" />
+                                        <TextBlock x:Name="MaxPageLabel" Text="最大ページ数" Style="{StaticResource WebOnly}" />
+                                        <TextBox Grid.Column="1" Text="{Binding Project.MaxPages}" AutomationProperties.Name="最大ページ数" Visibility="{Binding Visibility, ElementName=MaxPageLabel}" />
                                         <TextBlock Grid.Row="1" Text="最大実行時間（分）" />
                                         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Project.MaxMinutes}" AutomationProperties.Name="最大実行時間（分）" />
-                                        <TextBlock Grid.Row="2" Text="最大通信数" />
+                                        <TextBlock Grid.Row="2" Text="{Binding RequestLimitLabel}" />
                                         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Project.MaxRequests}" AutomationProperties.Name="最大通信数" />
                                     </Grid>
                                 </GroupBox>
-                                <GroupBox Header="参照するガイドライン" Margin="0,0,0,16">
+                                <GroupBox Header="参照するガイドライン" Margin="0,0,0,16" Style="{StaticResource WebOnly}">
                                     <StackPanel>
                                         <TextBlock Text="チェックを外した資料は、候補選定・根拠表示・Codexへのコンテキストに使用しません。" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,8" />
                                         <CheckBox IsChecked="{Binding Project.Guidelines.WebAppPentestGuidelines, Mode=TwoWay}" Click="GuidelineCheckBox_Click" Margin="0,3">
@@ -160,7 +192,7 @@
                         </ScrollViewer>
                     </DockPanel>
                 </TabItem>
-                <TabItem Header="探索" Tag="ページと通信を収集し、AIで確認すべきパターンに絞り込みます。">
+                <TabItem Header="{Binding ExecutionPageHeader}" Tag="{Binding RunModeDescription}">
                     <Grid Margin="0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -170,12 +202,12 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Border Background="{DynamicResource InfoBackground}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" Padding="14" CornerRadius="4">
-                            <TextBlock TextWrapping="Wrap" Text="まず高速クローラで収集し、動的な代表パターンをAIで確認します。ログインなどの手動操作が必要になったら、ここに案内が表示されます。" />
+                            <TextBlock TextWrapping="Wrap" Text="{Binding RunModeDescription}" />
                         </Border>
                         <WrapPanel Grid.Row="1" Margin="0,12,0,12">
-                            <Button Content="探索を開始" Command="{Binding StartExplorationCommand}" Style="{StaticResource PrimaryActionButton}" />
+                            <Button Content="{Binding StartActionText}" Command="{Binding StartExplorationCommand}" Style="{StaticResource PrimaryActionButton}" />
                             <Button Content="停止" Command="{Binding StopExplorationCommand}" />
-                            <Button Content="候補を確認 →" Tag="3" Click="Navigate_Click" />
+                            <Button Content="生成結果を確認 →" Tag="{Binding ReviewPageTag}" Click="Navigate_Click" />
                             <Button Content="環境チェック" Command="{Binding CheckEnvironmentCommand}" />
                             <Button Content="MCP接続を設定" Command="{Binding SetupMcpCommand}" />
                             <Button Content="探索パッケージを生成" Command="{Binding BuildExplorationPackageCommand}" ToolTip="外部実行・調査用に設定ファイルだけを作成します。" />
@@ -491,6 +523,9 @@
                                         <Button Content="AI入力" Tag="ai-input.json" Click="RunArtifact_Click" />
                                         <Button Content="Codex結果" Tag="codex-result.json" Click="RunArtifact_Click" />
                                         <Button Content="探索サマリー" Tag="exploration-summary.json" Click="RunArtifact_Click" />
+                                        <Button Content="API実行ログ" Tag="api-document-run.log" Click="RunArtifact_Click" />
+                                        <Button Content="API生成結果" Tag="api-document-result.json" Click="RunArtifact_Click" />
+                                        <Button Content="API生成サマリー" Tag="api-document-summary.json" Click="RunArtifact_Click" />
                                         <Button Content="復旧記録" Tag="scopepilot-recovery.json" Click="RunArtifact_Click" />
                                         <Button Content="現在の設定で再試行" Command="{Binding RetrySelectedRunCommand}" Style="{StaticResource PrimaryActionButton}" />
                                         <Button Content="この実行を削除" Click="DeleteSelectedRun_Click" />
@@ -514,7 +549,7 @@
                         </Border>
                     </Grid>
                 </TabItem>
-                <TabItem Header="Burpへ引き渡し" Tag="採用した候補を出力し、Burp SuiteのScopeへ登録します。">
+                <TabItem Header="Burpへ引き渡し" Tag="{Binding BurpPageDescription}">
                     <Grid Margin="0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -523,14 +558,16 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Border Background="{DynamicResource InfoBackground}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" Padding="14" CornerRadius="4">
-                            <TextBlock TextWrapping="Wrap" Text="Burp Suite Community EditionではScopeを自動変更できないため、採用候補を少数のURL正規表現へ集約して手動登録します。案件の許可Originと一致することを確認してから追加してください。" />
+                            <TextBlock TextWrapping="Wrap" Text="{Binding BurpModeDescription}" />
                         </Border>
                         <WrapPanel Grid.Row="1" Margin="0,12,0,8">
-                            <Button Content="Scope出力を生成" Command="{Binding ExportBurpScopeCommand}" Style="{StaticResource PrimaryActionButton}" />
+                            <Button Content="{Binding BurpExportActionText}" Command="{Binding ExportBurpScopeCommand}" Style="{StaticResource PrimaryActionButton}" />
                             <Button Content="次をコピー" Command="{Binding CopyNextBurpRegexCommand}" />
                             <Button Content="出力フォルダーを開く" Command="{Binding OpenBurpExportFolderCommand}" />
                         </WrapPanel>
-                        <GroupBox Grid.Row="2" Header="登録用URL正規表現">
+                        <GroupBox Grid.Row="2" Header="{Binding BurpListHeader}">
+                          <Grid>
+                           <Grid Style="{StaticResource WebOnly}">
                             <ListBox ItemsSource="{Binding BurpScopeRegexes}" SelectedItem="{Binding SelectedBurpScopeRegex}" FontFamily="Consolas" HorizontalContentAlignment="Stretch">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
@@ -538,11 +575,19 @@
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
+                           </Grid>
+                           <StackPanel Style="{StaticResource ApiOnly}">
+                               <TextBlock Text="{Binding ApiRequestSummary}" FontWeight="SemiBold" />
+                               <TextBlock Text="採用した下書きは、個別のHTTPテキストと出典付きJSON・診断作業表として保存されます。出力後に［出力フォルダーを開く］でrequestsフォルダーを確認してください。" TextWrapping="Wrap" Margin="0,12" />
+                               <Button Content="APIリクエストを確認 →" Tag="8" Click="Navigate_Click" HorizontalAlignment="Left" />
+                           </StackPanel>
+                          </Grid>
                         </GroupBox>
                         <Border Grid.Row="3" Background="{DynamicResource WarningBackground}" BorderBrush="{DynamicResource WarningBorder}" BorderThickness="1" Padding="12" CornerRadius="4">
                             <StackPanel>
                                 <TextBlock Text="{Binding BurpHandoffStatus}" TextWrapping="Wrap" FontWeight="SemiBold" />
-                                <TextBlock Text="登録手順: BurpのTarget &gt; Scopeを開き、Include in scopeで追加します。コピーした値をURL regexへ貼り付け、Protocol・Host・Portが案件の許可Originと一致することを確認します。出力フォルダーには全候補の正規表現、代表URL、JSON証跡、TSV形式の診断作業表も保存されます。" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                <StackPanel Style="{StaticResource WebOnly}"><TextBlock Text="登録手順: BurpのTarget &gt; Scopeを開き、Include in scopeで追加します。コピーした値をURL regexへ貼り付け、Protocol・Host・Portが案件の許可Originと一致することを確認します。出力フォルダーには全候補の正規表現、代表URL、JSON証跡、TSV形式の診断作業表も保存されます。" TextWrapping="Wrap" Margin="0,6,0,0" /></StackPanel>
+                                <StackPanel Style="{StaticResource ApiOnly}"><TextBlock Text="APIモード: ［APIリクエスト］で採用した下書きを、個別の.http、JSON、TSVで出力します。.httpの全文をRepeaterへ貼り付け、接続先のTLS・Host・Portと認証情報・仮値を確認してください。選択した下書きは画面から直接コピーできます。" TextWrapping="Wrap" Margin="0,6,0,0" /></StackPanel>
                             </StackPanel>
                         </Border>
                     </Grid>
@@ -581,6 +626,49 @@
                             </StackPanel>
                         </Grid>
                     </ScrollViewer>
+                </TabItem>
+                <TabItem Header="APIリクエスト" Tag="API文書から生成した未送信の下書きを確認・編集し、Burpへ渡すリクエストを採用します。">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" /><RowDefinition Height="2*" MinHeight="130" />
+                            <RowDefinition Height="8" /><RowDefinition Height="3*" MinHeight="160" />
+                        </Grid.RowDefinitions>
+                        <DockPanel Margin="0,0,0,8">
+                            <WrapPanel DockPanel.Dock="Right">
+                                <Button Content="選択したHTTPをコピー" Command="{Binding CopyApiRequestCommand}" />
+                                <Button Content="編集を保存" Click="SaveApiRequest_Click" Style="{StaticResource EditableButton}" />
+                                <Button Content="Burpへ引き渡し →" Tag="6" Click="Navigate_Click" />
+                            </WrapPanel>
+                            <TextBlock Text="{Binding ApiRequestSummary}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <Grid Grid.Row="1" Style="{StaticResource EditableWhenIdle}">
+                            <DataGrid x:Name="ApiRequestsGrid" ItemsSource="{Binding Project.ApiRequests}" SelectedItem="{Binding SelectedApiRequest}" AutoGenerateColumns="False" IsReadOnly="False" CanUserAddRows="False" CanUserDeleteRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="採用" Width="60"><DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                        <CheckBox IsChecked="{Binding Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Click="ApiRequestSelection_Click" HorizontalAlignment="Center" AutomationProperties.Name="APIリクエストの採用" />
+                                    </DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Method" Binding="{Binding Method}" IsReadOnly="True" Width="80" />
+                                    <DataGridTextColumn Header="URL" Binding="{Binding Url}" IsReadOnly="True" Width="*" />
+                                    <DataGridTextColumn Header="Operation" Binding="{Binding OperationId}" IsReadOnly="True" Width="130" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock Text="APIドキュメントモードで文書を読み込み、リクエストを生成してください。生成直後は全件未採用です。" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="480" TextAlignment="Center">
+                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Project.ApiRequests.Count}" Value="0"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                        <GridSplitter Grid.Row="2" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Center" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="{DynamicResource Border}" />
+                        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Style="{StaticResource EditableWhenIdle}">
+                                <TextBlock Text="{Binding SelectedApiRequest.Summary}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding SelectedApiRequest.ReviewNotes}" TextWrapping="Wrap" Margin="0,8" />
+                                <TextBlock Text="Method" /><TextBox Text="{Binding SelectedApiRequest.Method, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="URL" /><TextBox Text="{Binding SelectedApiRequest.Url, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="ヘッダー（1行に Name: value）" /><TextBox Text="{Binding SelectedApiRequest.HeadersText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="90" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
+                                <TextBlock Text="本文" /><TextBox Text="{Binding SelectedApiRequest.Body, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" AcceptsTab="True" Height="120" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
+                                <TextBlock Text="Burpへ渡すHTTPテキスト" /><TextBox Text="{Binding SelectedApiRequest.RawRequest, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" Height="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
                 </TabItem>
             </TabControl>
         </Grid>

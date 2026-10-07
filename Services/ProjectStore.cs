@@ -17,8 +17,7 @@ public sealed class ProjectStore
         Converters = { new JsonStringEnumConverter() }
     };
 
-    public string DataDirectory { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScopePilot", "projects");
+    public string DataDirectory { get; } = Path.Combine(ScopePilotDataPaths.RootDirectory, "projects");
 
     public async Task SaveAsync(EngagementProject project)
     {

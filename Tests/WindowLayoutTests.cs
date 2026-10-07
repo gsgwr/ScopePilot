@@ -46,9 +46,19 @@ public sealed class WindowLayoutTests
                     model.FilteredCandidates.Add(candidate);
                     model.Project.Findings.Add(finding);
                     model.RunHistory.Add(model.SelectedRun!);
+                    model.Project.ApiRequests.Add(new ApiRequestDraft
+                    {
+                        Method = "POST", Url = "https://example.test/v1/pets", HeadersText = "Content-Type: application/json\nAuthorization: <TOKEN>",
+                        Body = "{\"name\":\"sample\"}", Summary = "文書に記載された登録処理", SourceReference = "#/paths/~1pets/post",
+                        UnresolvedValues = ["Authorization: <TOKEN>"], Notes = [new string('注', 200)]
+                    });
                     window.DataContext = null;
                     window.DataContext = model;
                 }
+                foreach (var apiMode in new[] { false, true })
+                {
+                model.ProjectModeIndex = apiMode ? 1 : 0;
+                window.Dispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
                 foreach (var dark in new[] { false, true })
                 foreach (var size in new[] { new Size(960, 700), new Size(1360, 900) })
                 {
@@ -64,6 +74,7 @@ public sealed class WindowLayoutTests
                         layoutRoot.UpdateLayout();
                         window.Dispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
                         if (populated && workspace.SelectedIndex == 3) model.SelectedCandidate = candidate;
+                        if (populated && workspace.SelectedIndex == 8) model.SelectedApiRequest = model.Project.ApiRequests.First();
                         Assert.True(workspace.ActualWidth >= 680, $"Workspace width: {workspace.ActualWidth}");
                         Assert.True(workspace.ActualHeight >= 400);
                         foreach (var grid in Descendants<DataGrid>(workspace))
@@ -75,10 +86,11 @@ public sealed class WindowLayoutTests
                             bitmap.Render(layoutRoot);
                             var encoder = new PngBitmapEncoder();
                             encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                            using var stream = File.Create(Path.Combine(snapshotDirectory, $"{(populated ? "filled" : "empty")}-{(dark ? "dark" : "light")}-{size.Width}-page{item.Tag}.png"));
+                            using var stream = File.Create(Path.Combine(snapshotDirectory, $"{(apiMode ? "api" : "web")}-{(populated ? "filled" : "empty")}-{(dark ? "dark" : "light")}-{size.Width}-page{item.Tag}.png"));
                             encoder.Save(stream);
                         }
                     }
+                }
                 }
                 }
                 Assert.Empty(bindingErrors.Errors);

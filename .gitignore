@@ -5,6 +5,7 @@ artifacts/
 *.user
 *.suo
 *.userprefs
+.cache/
 
 # Published installers and archives are generated artifacts.
 ../ScopePilot-publish-*/

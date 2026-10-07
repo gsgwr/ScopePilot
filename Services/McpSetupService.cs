@@ -14,7 +14,7 @@ public sealed class McpSetupService
         var node = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "nodejs", "node.exe");
         var java = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "BurpSuite", "jre", "bin", "java.exe");
         var proxy = Path.Combine(AppContext.BaseDirectory, "tools", "mcp-proxy-all.jar");
-        var scopePilotRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScopePilot");
+        var scopePilotRoot = ScopePilotDataPaths.RootDirectory;
         var playwrightOutput = Path.Combine(scopePilotRoot, "playwright");
         var playwrightCli = Path.Combine(AppContext.BaseDirectory, "tools", "playwright-runtime", "node_modules", "@playwright", "mcp", "cli.js");
 
